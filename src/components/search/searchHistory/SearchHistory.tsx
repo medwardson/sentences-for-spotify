@@ -10,9 +10,14 @@ const PAGE_SIZE = 10;
 interface SearchHistoryProps {
     title: string;
     results: SearchResult[];
+    loading?: boolean;
 }
 
-export default function SearchHistory({ title, results }: SearchHistoryProps) {
+export default function SearchHistory({
+    title,
+    results,
+    loading = false,
+}: SearchHistoryProps) {
     const [page, setPage] = useState(1);
     const pageCount = Math.ceil(results.length / PAGE_SIZE);
     const start = (page - 1) * PAGE_SIZE;
@@ -24,10 +29,22 @@ export default function SearchHistory({ title, results }: SearchHistoryProps) {
         <section className="flex flex-col gap-4">
             <h2 className="section-heading">
                 {title}
-                {results.length > 0 && ` · ${results.length}`}
+                {!loading && results.length > 0 && ` · ${results.length}`}
             </h2>
 
-            {results.length > 0 ? (
+            {loading ? (
+                <ul
+                    className={styles.list}
+                    aria-busy="true"
+                    aria-label="Loading history"
+                >
+                    {[0, 1, 2].map((i) => (
+                        <li key={i} className={styles.item}>
+                            <div className={styles.skeleton} />
+                        </li>
+                    ))}
+                </ul>
+            ) : results.length > 0 ? (
                 <>
                     <ul
                         className={`${styles.list} ${pageCount > 1 ? styles.paged : ""}`}

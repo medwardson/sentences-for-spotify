@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { sendData } from "@/utils/database";
+import { getPlaylistHistory, sendData } from "@/utils/database";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { setUserInfo } from "@/lib/store/userSlice";
+import { setFullHistory, setUserInfo } from "@/lib/store/userSlice";
 import { fetchSpotifyUserData } from "@/utils/getUserInfo";
 import { CircularProgress } from "@mui/material";
 import Image from "next/image";
@@ -21,8 +21,13 @@ function Main() {
         async (accessToken: string) => {
             const fetchData = async () => {
                 try {
-                    const data = await fetchSpotifyUserData(accessToken);
+                    const [data, history] = await Promise.all([
+                        fetchSpotifyUserData(accessToken),
+                        getPlaylistHistory(accessToken).catch(() => null),
+                    ]);
 
+                    // Firestore arrayUnion appends, so the newest playlist is last
+                    if (history) dispatch(setFullHistory(history.reverse()));
                     dispatch(
                         setUserInfo({
                             id: data.id,
@@ -31,7 +36,6 @@ function Main() {
                             profilePictureUrl: data.images?.at(-1)?.url,
                         })
                     );
-                    // Optional: Call sendData if needed
                     sendData(accessToken);
                     router.push("/home");
                 } catch (error) {

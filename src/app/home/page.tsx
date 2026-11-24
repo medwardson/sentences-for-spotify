@@ -9,7 +9,6 @@ import withAuth from "@/components/useAuth";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { setFullHistory } from "@/lib/store/userSlice";
 import { getPlaylistHistory } from "@/utils/database";
-import { CircularProgress } from "@mui/material";
 import { useEffect, useState } from "react";
 
 function Main() {
@@ -32,21 +31,18 @@ function Main() {
             <Header />
             <div className={`content-container ${styles.content}`}>
                 <Options />
-                {historyLoaded || loadFailed ? (
-                    <div className="flex flex-col gap-2">
-                        <SearchHistory
-                            title="History"
-                            results={historyLoaded ? fullHistory : recentResults}
-                        />
-                        {loadFailed && (
-                            <p className="text-muted text-sm">
-                                Couldn&rsquo;t load your saved playlists
-                            </p>
-                        )}
-                    </div>
-                ) : (
-                    <CircularProgress size={24} className="justify-self-center" />
-                )}
+                <div className="flex flex-col gap-2">
+                    <SearchHistory
+                        title="History"
+                        loading={!historyLoaded && !loadFailed}
+                        results={historyLoaded ? fullHistory : recentResults}
+                    />
+                    {loadFailed && (
+                        <p className="text-muted text-sm">
+                            Couldn&rsquo;t load your saved playlists
+                        </p>
+                    )}
+                </div>
             </div>
         </>
     );

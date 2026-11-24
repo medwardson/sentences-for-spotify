@@ -40,6 +40,23 @@
     color: var(--text-muted);
 }
 
+.skeleton {
+    width: 60%;
+    height: 1rem;
+    border-radius: 4px;
+    background: var(--surface-raised);
+
+    @media (prefers-reduced-motion: no-preference) {
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+}
+
+@keyframes pulse {
+    50% {
+        opacity: 0.4;
+    }
+}
+
 .action {
     flex-shrink: 0;
     white-space: nowrap;
