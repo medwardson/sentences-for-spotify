@@ -1,22 +1,11 @@
 "use client";
 
-import { login } from "@/utils/spotifyAuth";
-import Cookies from "js-cookie";
-import { useRouter } from "next/navigation";
 import GreenButton from "./GreenButton";
 
 export const LoginButton = () => {
-    const router = useRouter();
-
     function handleLogin() {
-        const existingAccessToken = Cookies.get("access_token");
-
-        if (existingAccessToken) {
-            router.push("/loading");
-            return;
-        }
-
-        login();
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- an API route, not a page: needs a full navigation to follow its redirect
+        window.location.assign("/api/auth/login");
     }
 
     return <GreenButton text="Log in with Spotify" onClick={handleLogin} />;

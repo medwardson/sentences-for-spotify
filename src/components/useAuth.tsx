@@ -1,7 +1,6 @@
 import React from "react";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Cookies from "js-cookie";
 import { useAppSelector } from "@/lib/hooks";
 
 export function useAuth() {
@@ -10,7 +9,7 @@ export function useAuth() {
 
     useEffect(() => {
         if (!id) {
-            router.push(Cookies.get("access_token") ? "/loading" : "/");
+            router.push("/loading");
         }
     }, [id, router]);
 

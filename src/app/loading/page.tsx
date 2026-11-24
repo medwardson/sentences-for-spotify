@@ -2,13 +2,11 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Cookies from "js-cookie";
 import { sendData } from "@/utils/database";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { setUserInfo } from "@/lib/store/userSlice";
 import { fetchSpotifyUserData } from "@/utils/getUserInfo";
 import { CircularProgress } from "@mui/material";
-import { getAccessToken } from "@/utils/spotifyAuth";
 import Image from "next/image";
 import logo from "../../../public/images/newLogo.svg";
 
@@ -51,27 +49,14 @@ function Main() {
             return;
         }
 
-        const cookieToken = Cookies.get("access_token");
-
-        if (cookieToken) {
-            getUserInfo(cookieToken);
-            return;
-        }
-
-        const code = new URLSearchParams(window.location.search).get("code");
-
-        if (!code) {
-            router.push("/");
-            return;
-        }
-
-        // only the one-time code exchange is guarded, so redirects still fire on Strict Mode's effect re-run
+        // only the one-shot session fetch is guarded, so the redirect above still fires on Strict Mode's effect re-run
         if (ran.current) return;
         ran.current = true;
 
-        getAccessToken(code)
-            .then((token) => {
-                if (token) getUserInfo(token);
+        fetch("/api/auth/session")
+            .then((response) => (response.ok ? response.json() : null))
+            .then((session) => {
+                if (session?.accessToken) getUserInfo(session.accessToken);
                 else router.push("/");
             })
             .catch(() => router.push("/"));
