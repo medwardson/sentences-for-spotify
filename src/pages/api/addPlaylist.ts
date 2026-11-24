@@ -1,17 +1,33 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { admin, db } from "../../utils/firebaseAdmin";
+import { FieldValue } from "firebase-admin/firestore";
+import { db } from "../../utils/firebaseAdmin";
+import { requireSpotifyUser } from "../../utils/requireSpotifyUser";
+
+const isString = (value: unknown, max: number): value is string =>
+    typeof value === "string" && value.length <= max;
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
     if (req.method === "POST") {
-        const { userId, url, title, sentence = "" } = req.body;
-        const userRef = db.collection("users").doc(userId);
+        const user = await requireSpotifyUser(req, res);
+        if (!user) return;
+
+        const { url, title, sentence = "" } = req.body ?? {};
+        if (
+            !isString(title, 200) ||
+            !isString(sentence, 1000) ||
+            !isString(url, 500) ||
+            !url.startsWith("https://open.spotify.com/")
+        ) {
+            return res.status(400).json({ error: "Invalid playlist" });
+        }
+        const userRef = db.collection("users").doc(user.id);
 
         try {
             await userRef.update({
-                searchHistory: admin.firestore.FieldValue.arrayUnion({
+                searchHistory: FieldValue.arrayUnion({
                     title,
                     url,
                     sentence,

@@ -39,7 +39,7 @@ export const Options: FC<OptionsProps> = ({ className }) => {
     // TODO: maybe we can use DI
     if (!accessToken || !id) return;
 
-    const client = new SpotifyClient(accessToken, id);
+    const client = new SpotifyClient(accessToken);
     const disabled = sentence.length === 0 || title.length === 0 || isFetching;
 
     const submit = async (event: FormEvent) => {

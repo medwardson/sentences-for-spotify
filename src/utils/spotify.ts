@@ -5,7 +5,7 @@ import { addPlaylist } from "@/utils/database";
 class SpotifyClient {
     private headers: HeadersInit;
 
-    constructor(accessToken: string, private userId: string) {
+    constructor(private accessToken: string) {
         this.headers = {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
@@ -44,7 +44,7 @@ class SpotifyClient {
             sentence,
         };
 
-        addPlaylist(this.userId, result);
+        addPlaylist(this.accessToken, result);
 
         return result;
     }

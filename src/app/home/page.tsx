@@ -20,12 +20,12 @@ function Main() {
     const [loadFailed, setLoadFailed] = useState(false);
 
     useEffect(() => {
-        if (historyLoaded || !info.id) return;
-        getPlaylistHistory(info.id)
+        if (historyLoaded || !info.accessToken) return;
+        getPlaylistHistory(info.accessToken)
             // Firestore arrayUnion appends, so the newest playlist is last
             .then((history) => dispatch(setFullHistory(history.reverse())))
             .catch(() => setLoadFailed(true));
-    }, [dispatch, historyLoaded, info.id]);
+    }, [dispatch, historyLoaded, info.accessToken]);
 
     return (
         <>
