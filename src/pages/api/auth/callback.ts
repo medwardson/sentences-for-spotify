@@ -9,12 +9,18 @@ export default async function handler(
     const expectedState = req.cookies.oauth_state;
     const cookies = [clearCookie("oauth_state", "/api/auth")];
 
-    if (
-        error ||
-        typeof code !== "string" ||
-        !expectedState ||
-        state !== expectedState
-    ) {
+    const failure = error
+        ? `spotify error ${error}`
+        : typeof code !== "string"
+          ? "missing code"
+          : !expectedState
+            ? "missing state cookie"
+            : state !== expectedState
+              ? "state mismatch"
+              : null;
+
+    if (failure || typeof code !== "string") {
+        console.warn(`Login failed: ${failure}`);
         res.setHeader("Set-Cookie", cookies);
         return res.redirect(302, "/");
     }
@@ -26,6 +32,7 @@ export default async function handler(
     }).catch(() => null);
 
     if (!token) {
+        console.warn("Login failed: token exchange rejected");
         res.setHeader("Set-Cookie", cookies);
         return res.redirect(302, "/");
     }
