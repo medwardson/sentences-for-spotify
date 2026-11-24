@@ -1,19 +1,13 @@
 import styles from "./Profile.module.scss";
 
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { useAppSelector } from "@/lib/hooks";
 import { useState } from "react";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { ListItemIcon, Menu, MenuItem } from "@mui/material";
-import { clearUserInfo } from "@/lib/store/userSlice";
-import Cookies from "js-cookie";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 export const Profile = () => {
-    const dispatch = useAppDispatch();
-    const router = useRouter();
-
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const open = Boolean(anchorEl);
 
@@ -26,10 +20,10 @@ export const Profile = () => {
 
     const handleClose = () => setAnchorEl(null);
 
-    const deleteCookie = () => {
-        Cookies.remove("access_token");
-        dispatch(clearUserInfo());
-        router.push("/");
+    const logOut = async () => {
+        await fetch("/api/auth/logout", { method: "POST" });
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full navigation resets the store; clearing it client-side would let withAuth redirect to /loading first
+        window.location.assign("/");
     };
 
     return (
@@ -57,7 +51,7 @@ export const Profile = () => {
                 )}
             </button>
             <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-                <MenuItem dense onClick={deleteCookie}>
+                <MenuItem dense onClick={logOut}>
                     <ListItemIcon>
                         <LogoutIcon fontSize="small" />
                     </ListItemIcon>
