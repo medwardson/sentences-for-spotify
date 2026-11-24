@@ -7,11 +7,26 @@ export default async function handler(
     res: NextApiResponse
 ) {
     if (req.method === "GET") {
+        const cronSecret = process.env.CRON_SECRET;
+        if (
+            !cronSecret ||
+            req.headers.authorization !== `Bearer ${cronSecret}`
+        ) {
+            res.status(401).end("Unauthorized");
+            return;
+        }
+
         const albumGetter = new AlbumGetter();
         await albumGetter.getToken();
         const albums = await albumGetter.getAlbums();
 
-        db.collection("albums")
+        if (!albums) {
+            res.status(502).end("Failed to fetch albums from Spotify");
+            return;
+        }
+
+        await db
+            .collection("albums")
             .doc("albums")
             .set({
                 albums: albums.slice(0, 20),
@@ -19,7 +34,7 @@ export default async function handler(
 
         res.status(200).json({ albums });
     } else {
-        res.setHeader("Allow", ["POST"]);
+        res.setHeader("Allow", ["GET"]);
         res.status(405).end(`Method ${req.method} Not Allowed`);
     }
 }

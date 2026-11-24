@@ -10,7 +10,6 @@ export default async function handler(
         const userRef = db.collection("users").doc(userId);
 
         try {
-            console.log("Adding");
             await userRef.update({
                 searchHistory: admin.firestore.FieldValue.arrayUnion({
                     title,

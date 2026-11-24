@@ -36,13 +36,21 @@ export const Profile = () => {
         <div className={styles.userInfo}>
             <span>Hi, {displayName}!</span>
             <a onClick={handleClick}>
-                <Image
-                    height={40}
-                    width={40}
-                    className={styles.pfp}
-                    src={profilePictureUrl!} // TODO: Default to a placeholder image if profilePictureUrl is null
-                    alt="Profile Picture"
-                />
+                {profilePictureUrl ? (
+                    <Image
+                        height={40}
+                        width={40}
+                        className={styles.pfp}
+                        src={profilePictureUrl}
+                        alt="Profile Picture"
+                        unoptimized
+                    />
+                ) : (
+                    <AccountCircleIcon
+                        className={styles.pfp}
+                        sx={{ fontSize: 40 }}
+                    />
+                )}
             </a>
             <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
                 <MenuItem dense onClick={handleClose}>

@@ -3,11 +3,14 @@ import logo from "../../public/images/newLogo.svg";
 import styles from "@/app/page.module.scss";
 import { LoginButton } from "@/components/buttons/LoginButton";
 import ImageCarousel from "@/components/image-carousel/ImageCarousel";
-import { fetchAlbums } from "@/utils/database";
+import { db } from "@/utils/firebaseAdmin";
 import Image from "next/image";
 
+export const revalidate = 86400;
+
 export default async function Home() {
-    const albums = await fetchAlbums();
+    const doc = await db.collection("albums").doc("albums").get();
+    const albums: string[] = doc.data()?.albums ?? [];
 
     return (
         <div className="flex flex-col items-center text-white h-full">

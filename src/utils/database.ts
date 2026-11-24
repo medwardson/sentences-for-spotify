@@ -1,7 +1,5 @@
 import { SearchResult } from "@/types/spotify";
 
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-
 export const addPlaylist = async (userId: string, sr: SearchResult) => {
     await fetch("/api/addPlaylist", {
         method: "POST",
@@ -42,13 +40,6 @@ export const getPlaylistHistory = async (userId: string) => {
     return data.result as SearchResult[];
 };
 
-export const fetchAlbums = async (): Promise<string[]> => {
-    const response = await fetchWithTimeout("/api/fetchAlbums");
-    const data = await response.json();
-
-    return data.albums;
-};
-
 const fetchWithTimeout = async (
     path: string,
     options: RequestInit = {},
@@ -59,7 +50,7 @@ const fetchWithTimeout = async (
 
     try {
         const timeoutId = setTimeout(() => controller.abort(), timeout);
-        const response = await fetch(`${baseUrl}${path}`, options);
+        const response = await fetch(path, options);
         clearTimeout(timeoutId);
 
         if (!response.ok) {

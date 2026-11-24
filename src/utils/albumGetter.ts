@@ -19,7 +19,6 @@ class AlbumGetter {
 
     public async getAlbums() {
         try {
-            console.log("Token:", `Bearer ${this.token}`);
             const response = await fetch(
                 "https://api.spotify.com/v1/playlists/37i9dQZEVXbLRQDuF5jeBp/tracks",
                 {
@@ -65,7 +64,6 @@ class AlbumGetter {
                 const data = await response.json();
                 const token = data.access_token;
                 this.token = token;
-                console.log("Token:", token);
                 return token;
             } else {
                 console.error(

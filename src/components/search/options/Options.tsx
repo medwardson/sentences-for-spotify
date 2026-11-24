@@ -46,6 +46,7 @@ export const Options: FC<OptionsProps> = ({ className }) => {
             })
             .catch((err: any) => {
                 console.error(err);
+                dispatch(setFetching(false));
             });
     };
 

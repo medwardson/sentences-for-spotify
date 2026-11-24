@@ -65,8 +65,6 @@ export const getAccessToken = async (code: string) => {
     const body = await fetch(url, payload);
     const response = await body.json();
 
-    console.log({ response });
-
     if (response.access_token) {
         Cookies.set("access_token", response.access_token, {
             expires: response.expires_in / (60 * 60 * 24), // Convert seconds to days
