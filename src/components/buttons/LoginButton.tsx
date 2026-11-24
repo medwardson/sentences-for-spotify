@@ -1,6 +1,6 @@
 "use client";
 
-import { loginUrl } from "@/utils/spotify";
+import { login } from "@/utils/spotifyAuth";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import GreenButton from "./GreenButton";
@@ -8,7 +8,7 @@ import GreenButton from "./GreenButton";
 export const LoginButton = () => {
     const router = useRouter();
 
-    function login() {
+    function handleLogin() {
         const existingAccessToken = Cookies.get("access_token");
 
         if (existingAccessToken) {
@@ -16,8 +16,8 @@ export const LoginButton = () => {
             return;
         }
 
-        window.location.assign(loginUrl);
+        login();
     }
 
-    return <GreenButton text="Login with Spotify" onClick={login} />;
+    return <GreenButton text="Login with Spotify" onClick={handleLogin} />;
 };
