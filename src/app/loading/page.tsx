@@ -10,6 +10,12 @@ import { CircularProgress } from "@mui/material";
 import Image from "next/image";
 import logo from "../../../public/images/newLogo.svg";
 
+// only same-origin paths, so ?next= can't send users off-site
+const nextPath = () => {
+    const next = new URLSearchParams(window.location.search).get("next");
+    return next && /^\/(?![\/\\])/.test(next) ? next : "/home";
+};
+
 function Main() {
     const router = useRouter();
     const dispatch = useAppDispatch();
@@ -37,7 +43,7 @@ function Main() {
                         })
                     );
                     sendData(accessToken);
-                    router.push("/home");
+                    router.push(nextPath());
                 } catch (error) {
                     router.push("/");
                 }
@@ -49,7 +55,7 @@ function Main() {
 
     useEffect(() => {
         if (accessToken) {
-            router.push("/home");
+            router.push(nextPath());
             return;
         }
 

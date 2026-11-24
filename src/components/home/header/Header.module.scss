@@ -1,5 +1,6 @@
 .header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
@@ -20,7 +21,31 @@
     border-radius: 4px;
 }
 
+.nav {
+    order: 1;
+    display: flex;
+    gap: 1.5rem;
+    width: 100%;
+}
+
+.link {
+    color: var(--text-muted);
+    font-weight: 600;
+
+    &:hover,
+    &[aria-current="page"] {
+        color: var(--text);
+    }
+}
+
 @media (min-width: 768px) {
+    .nav {
+        order: 0;
+        width: auto;
+        margin-left: auto;
+        margin-right: 1rem;
+    }
+
     .brand {
         gap: 1rem;
     }

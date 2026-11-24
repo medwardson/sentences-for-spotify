@@ -1,0 +1,109 @@
+.tabs {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    width: 100%;
+    border-bottom: 1px solid var(--surface-raised);
+}
+
+.tab {
+    min-height: 44px;
+    margin-bottom: -1px;
+    padding-inline: 0.25rem;
+    border-bottom: 2px solid transparent;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-muted);
+
+    &:hover {
+        color: var(--text);
+    }
+
+    &[aria-pressed="true"] {
+        color: var(--text);
+        border-bottom-color: var(--green);
+    }
+}
+
+.carousel {
+    --slide-w: 270px;
+    --peek: 48px;
+    display: flex;
+    gap: 1rem;
+    width: min(100%, calc(var(--slide-w) + 2 * var(--peek)));
+    padding-inline: calc((100% - var(--slide-w)) / 2);
+    box-sizing: border-box;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+
+    @media (min-width: 768px) {
+        --slide-w: 360px;
+        --peek: 64px;
+        gap: 1.5rem;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        scroll-behavior: auto;
+    }
+}
+
+.slide {
+    flex: none;
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+    opacity: 0.35;
+    transform: scale(0.92);
+    transition:
+        opacity 0.2s,
+        transform 0.2s;
+
+    &[data-active="true"] {
+        opacity: 1;
+        transform: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        transition: none;
+    }
+}
+
+.caption {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 3.5rem;
+}
+
+.dots {
+    display: flex;
+}
+
+.dot {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+
+    &::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--control-border);
+    }
+
+    &:hover::before {
+        background: var(--text);
+    }
+
+    &[aria-current="true"]::before {
+        background: var(--green);
+    }
+}
