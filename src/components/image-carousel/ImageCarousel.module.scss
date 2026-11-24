@@ -20,7 +20,6 @@
 }
 
 .carousel-track.paused,
-.carousel-container:hover .carousel-track,
 .carousel-container:focus-within .carousel-track {
     animation-play-state: paused;
 }

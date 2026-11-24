@@ -60,6 +60,18 @@ export default async function Home() {
                     <SpotifyAttribution />
                 </ImageCarousel>
             )}
+
+            <footer className={`content-container ${styles.footer}`}>
+                <span>Not affiliated with or endorsed by Spotify.</span>
+                <a
+                    href="https://github.com/medwardson/sentences-for-spotify"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-link"
+                >
+                    Source on GitHub
+                </a>
+            </footer>
         </div>
     );
 }

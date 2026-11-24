@@ -17,6 +17,7 @@ export default function SearchHistory({ title, results }: SearchHistoryProps) {
     const pageCount = Math.ceil(results.length / PAGE_SIZE);
     const start = (page - 1) * PAGE_SIZE;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to page 1 when the results change
     useEffect(() => setPage(1), [results.length]);
 
     return (
@@ -28,20 +29,25 @@ export default function SearchHistory({ title, results }: SearchHistoryProps) {
 
             {results.length > 0 ? (
                 <>
-                    <ul className={styles.list}>
+                    <ul
+                        className={`${styles.list} ${pageCount > 1 ? styles.paged : ""}`}
+                        style={{ "--page-size": PAGE_SIZE } as React.CSSProperties}
+                    >
                         {results.slice(start, start + PAGE_SIZE).map((result, i) => (
                             <li key={start + i} className={styles.item}>
-                                <span className={styles.title} title={result.title}>
-                                    {result.title}
-                                </span>
-                                {result.sentence && (
-                                    <span
-                                        className={styles.sentence}
-                                        title={result.sentence}
-                                    >
-                                        {result.sentence}
+                                <div className={styles.text}>
+                                    <span className={styles.title} title={result.title}>
+                                        {result.title}
                                     </span>
-                                )}
+                                    {result.sentence && (
+                                        <span
+                                            className={styles.sentence}
+                                            title={result.sentence}
+                                        >
+                                            {result.sentence}
+                                        </span>
+                                    )}
+                                </div>
                                 {result.status === "success" ? (
                                     <a
                                         href={result.url}
@@ -55,8 +61,9 @@ export default function SearchHistory({ title, results }: SearchHistoryProps) {
                                 ) : (
                                     <span
                                         className={`text-sm text-red-400 ${styles.action}`}
+                                        title="No song combination found"
                                     >
-                                        No song combination found
+                                        No match
                                     </span>
                                 )}
                             </li>

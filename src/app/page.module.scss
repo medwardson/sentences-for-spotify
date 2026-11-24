@@ -2,7 +2,24 @@
     display: flex;
     flex-direction: column;
     gap: 3rem;
-    padding-block: 3rem;
+    min-height: 100svh;
+    padding-block: 3rem 1.5rem;
+}
+
+.page > :first-child,
+.footer {
+    margin-top: auto;
+}
+
+.footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--surface-raised);
+    font-size: 0.875rem;
+    color: var(--text-muted);
 }
 
 .hero {
@@ -77,7 +94,7 @@
 @media (min-width: 768px) {
     .page {
         gap: 4rem;
-        padding-block: 4rem;
+        padding-block: 4rem 2rem;
     }
 
     .hero {
