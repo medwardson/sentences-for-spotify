@@ -9,7 +9,9 @@ export function useAuth() {
 
     useEffect(() => {
         if (!id) {
-            router.push("/loading");
+            router.push(
+                "/loading?next=" + encodeURIComponent(window.location.pathname)
+            );
         }
     }, [id, router]);
 

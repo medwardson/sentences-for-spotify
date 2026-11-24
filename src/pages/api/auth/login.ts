@@ -16,7 +16,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     authUrl.search = new URLSearchParams({
         response_type: "code",
         client_id: process.env.NEXT_PUBLIC_CLIENT_ID as string,
-        scope: "playlist-modify-public",
+        scope: "playlist-modify-public user-top-read user-read-recently-played",
         state,
         redirect_uri: baseUrl + "/api/auth/callback",
     }).toString();

@@ -5,6 +5,19 @@ export interface SpotifyUser {
     display_name: string | null;
 }
 
+// null when Spotify rejects the token; throws on network failure
+export async function getSpotifyUser(
+    token: string
+): Promise<SpotifyUser | null> {
+    const spotifyRes = await fetch("https://api.spotify.com/v1/me", {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!spotifyRes.ok) return null;
+    const user = await spotifyRes.json();
+    if (typeof user?.id !== "string" || user.id.length === 0) return null;
+    return { id: user.id, display_name: user.display_name ?? null };
+}
+
 export async function requireSpotifyUser(
     req: NextApiRequest,
     res: NextApiResponse
@@ -16,21 +29,17 @@ export async function requireSpotifyUser(
     }
 
     try {
-        const spotifyRes = await fetch("https://api.spotify.com/v1/me", {
-            headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!spotifyRes.ok) {
+        const user = await getSpotifyUser(token);
+        if (!user) {
             res.status(401).json({ error: "Invalid access token" });
             return null;
         }
-        const user = await spotifyRes.json();
-        if (typeof user?.id !== "string" || user.id.length === 0) {
-            res.status(401).json({ error: "Invalid access token" });
-            return null;
-        }
-        return { id: user.id, display_name: user.display_name ?? null };
+        return user;
     } catch (error) {
-        console.error("Failed to verify Spotify user:", (error as Error).message);
+        console.error(
+            "Failed to verify Spotify user:",
+            (error as Error).message
+        );
         res.status(502).json({ error: "Failed to verify Spotify user" });
         return null;
     }

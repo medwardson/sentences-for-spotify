@@ -4,7 +4,7 @@ import { useAppSelector } from "@/lib/hooks";
 import { useState } from "react";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import LogoutIcon from "@mui/icons-material/Logout";
-import { ListItemIcon, Menu, MenuItem } from "@mui/material";
+import { ListItemIcon, ListSubheader, Menu, MenuItem } from "@mui/material";
 import Image from "next/image";
 
 export const Profile = () => {
@@ -28,7 +28,6 @@ export const Profile = () => {
 
     return (
         <div className={styles.userInfo}>
-            <span className="hidden text-muted md:inline">Hi, {displayName}!</span>
             <button
                 type="button"
                 className={styles.avatarButton}
@@ -51,6 +50,11 @@ export const Profile = () => {
                 )}
             </button>
             <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
+                <ListSubheader
+                    sx={{ lineHeight: 2.5, bgcolor: "transparent" }}
+                >
+                    {displayName}
+                </ListSubheader>
                 <MenuItem dense onClick={logOut}>
                     <ListItemIcon>
                         <LogoutIcon fontSize="small" />
