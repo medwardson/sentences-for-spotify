@@ -62,6 +62,7 @@ const ImageCarousel: FC<ImageCarouselProps> = ({
     const [paused, setPaused] = useState<boolean>();
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- matchMedia only exists after mount
         setPaused(
             window.matchMedia("(prefers-reduced-motion: reduce)").matches
         );
