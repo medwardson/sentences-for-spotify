@@ -1,4 +1,7 @@
-import { Mode } from "@/components/search/options/Options";
+export enum Mode {
+    SHORT = "short",
+    LONG = "long",
+}
 
 export interface Query {
     title: string;

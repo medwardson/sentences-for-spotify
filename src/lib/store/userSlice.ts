@@ -11,6 +11,7 @@ const initialState: User = {
     },
     recentResults: [],
     fullHistory: [],
+    historyLoaded: false,
 };
 
 const userSlice = createSlice({
@@ -43,11 +44,18 @@ const userSlice = createSlice({
         ) => {
             state.recentResults.unshift(action.payload.sr);
 
-            if (state.fullHistory.length > 1)
-                state.fullHistory.unshift(action.payload.sr);
+            if (state.historyLoaded) state.fullHistory.unshift(action.payload.sr);
         },
         setFullHistory: (state, action: PayloadAction<SearchResult[]>) => {
-            state.fullHistory = action.payload;
+            const saved = new Set(action.payload.map((sr) => sr.url));
+            // results made before the load finished may not be saved yet, and failures never are
+            state.fullHistory = [
+                ...state.recentResults.filter(
+                    (sr) => !sr.url || !saved.has(sr.url)
+                ),
+                ...action.payload,
+            ];
+            state.historyLoaded = true;
         },
     },
 });

@@ -20,7 +20,7 @@ export default async function handler(
         await albumGetter.getToken();
         const albums = await albumGetter.getAlbums();
 
-        if (!albums) {
+        if (!albums?.length) {
             res.status(502).end("Failed to fetch albums from Spotify");
             return;
         }
@@ -29,7 +29,7 @@ export default async function handler(
             .collection("albums")
             .doc("albums")
             .set({
-                albums: albums.slice(0, 20),
+                albums,
             });
 
         res.status(200).json({ albums });

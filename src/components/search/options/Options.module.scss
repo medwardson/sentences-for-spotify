@@ -1,62 +1,58 @@
-@import "../../../styles/variables.scss";
-
-.search {
-    color: black;
-    height: 3rem !important;
-    width: 3rem !important;
-}
-
-.icon-button {
-    background-color: $primary-green !important;
-    padding: 1rem !important;
-
-    &:hover {
-        background-color: $primary-green !important;
-        opacity: 0.7;
-    }
-
-    &:disabled {
-        background-color: $primary-green !important;
-        opacity: 0.5;
-    }
-}
-
-.info {
-    background-color: rgba(33, 33, 33, 0.7);
-    border-radius: 50%;
-    height: 2rem;
-    width: 2rem;
+.form {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    border-radius: 8px;
+    background: var(--surface);
 }
 
-.question {
-    color: white !important;
-    height: 1rem !important;
-    width: 1rem !important;
+.mode {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
 }
 
 .toggle-group {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    gap: 0.5rem;
 }
 
-.toggle-group > button {
-    font-size: 1rem;
-    font-family: "Inter", sans-serif;
-    color: white !important;
-    background-color: #212121 !important;
-    opacity: 0.5;
+// matches MUI's grouped-button selectors so the pills keep their own border and radius
+.toggle-group .toggle,
+.toggle-group .toggle:not(:first-of-type),
+.toggle-group .toggle:not(:last-of-type) {
+    margin: 0;
+    min-height: 2rem;
+    padding: 0.25rem 1rem;
+    border: 1px solid var(--control-border);
+    border-radius: 9999px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
     text-transform: none;
+    color: var(--text);
+    background-color: transparent;
+
+    &:hover {
+        border-color: var(--text);
+        background-color: transparent;
+    }
 }
 
-.toggle-group > button.selected {
-    background-color: $primary-green !important;
-    opacity: 1;
+.toggle-group .toggle.selected,
+.toggle-group .toggle.selected:hover {
+    border-color: var(--green);
+    color: var(--on-green);
+    background-color: var(--green);
 }
 
-.options {
+.help {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.actions {
     display: flex;
+    justify-content: flex-end;
 }

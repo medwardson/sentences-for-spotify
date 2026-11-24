@@ -1,23 +1,28 @@
+// re-exported first so querySlice, which imports Mode from here, never sees it undefined
+export { Mode } from "@/types/query";
+import { Mode } from "@/types/query";
+import GreenButton from "@/components/buttons/GreenButton";
+import { TextInput } from "@/components/inputs/TextInput";
 import styles from "@/components/search/options/Options.module.scss";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { clearQuery, setFetching, setMode } from "@/lib/store/querySlice";
+import {
+    clearQuery,
+    setFetching,
+    setMode,
+    setSentence,
+    setTitle,
+} from "@/lib/store/querySlice";
 import { addRecentResult } from "@/lib/store/userSlice";
 import { SearchResult } from "@/types/spotify";
 import SpotifyClient from "@/utils/spotify";
 import { combineClasses } from "@/utils/styles";
-import { QuestionMark, Search } from "@mui/icons-material";
-import {
-    IconButton,
-    ToggleButton,
-    ToggleButtonGroup,
-    Tooltip,
-} from "@mui/material";
-import { FC } from "react";
+import { ToggleButton, ToggleButtonGroup } from "@mui/material";
+import { FC, FormEvent, useId } from "react";
 
-export enum Mode {
-    SHORT = "short",
-    LONG = "long",
-}
+const modeHelp: Record<Mode, string> = {
+    [Mode.SHORT]: "One song per word where possible; longer titles fill the gaps",
+    [Mode.LONG]: "Fewest songs, using the longest matching titles. Slower to run",
+};
 
 interface OptionsProps {
     className?: string;
@@ -25,6 +30,7 @@ interface OptionsProps {
 
 export const Options: FC<OptionsProps> = ({ className }) => {
     const dispatch = useAppDispatch();
+    const helpId = useId();
     const { sentence, title, mode, isFetching } = useAppSelector(
         (state) => state.query
     );
@@ -36,7 +42,10 @@ export const Options: FC<OptionsProps> = ({ className }) => {
     const client = new SpotifyClient(accessToken, id);
     const disabled = sentence.length === 0 || title.length === 0 || isFetching;
 
-    const submit = async () => {
+    const submit = async (event: FormEvent) => {
+        event.preventDefault();
+        if (disabled) return;
+
         dispatch(setFetching(true));
         client
             .startCreationAttempt(sentence, title, mode)
@@ -51,55 +60,70 @@ export const Options: FC<OptionsProps> = ({ className }) => {
     };
 
     return (
-        <div className={combineClasses(className, styles.options)}>
-            <IconButton
-                disabled={disabled}
-                onClick={submit}
-                className={styles["icon-button"]}
-            >
-                <Search className={styles.search} />
-            </IconButton>
+        <form
+            onSubmit={submit}
+            className={combineClasses(className, styles.form)}
+        >
+            <TextInput
+                label="Playlist title"
+                placeholder="Road trip mix"
+                value={title}
+                onChange={(value) => dispatch(setTitle(value))}
+            />
 
-            <ToggleButtonGroup
-                value={mode}
-                exclusive
-                onChange={(_, newMode) => {
-                    if (newMode !== null) {
-                        dispatch(setMode(newMode));
-                    }
-                }}
-                aria-label="mode selection"
-                className={combineClasses(styles["toggle-group"], "ml-8 mr-4")}
-            >
-                <ToggleButton
-                    size="small"
-                    value={Mode.SHORT}
-                    aria-label="short titles"
-                    classes={{
-                        selected: styles["selected"],
+            <TextInput
+                label="Sentence"
+                placeholder="never gonna give you up"
+                value={sentence}
+                onChange={(value) => dispatch(setSentence(value))}
+            />
+
+            <div className={styles.mode}>
+                <ToggleButtonGroup
+                    value={mode}
+                    exclusive
+                    onChange={(_, newMode) => {
+                        if (newMode !== null) {
+                            dispatch(setMode(newMode));
+                        }
                     }}
+                    aria-label="Song title length"
+                    aria-describedby={helpId}
+                    className={styles["toggle-group"]}
                 >
-                    Short Titles
-                </ToggleButton>
-                <ToggleButton
-                    size="small"
-                    value={Mode.LONG}
-                    aria-label="long titles"
-                    classes={{
-                        selected: styles["selected"],
-                    }}
-                >
-                    Long Titles
-                </ToggleButton>
-                <div className={combineClasses(styles.info, "ml-6")}>
-                    <Tooltip
-                        enterTouchDelay={0}
-                        title="Option to prefer shorter or longer song titles in the playlist. Long titles will take longer to run."
+                    <ToggleButton
+                        size="small"
+                        value={Mode.SHORT}
+                        classes={{
+                            root: styles.toggle,
+                            selected: styles.selected,
+                        }}
                     >
-                        <QuestionMark className={styles.question} />
-                    </Tooltip>
-                </div>
-            </ToggleButtonGroup>
-        </div>
+                        Short Titles
+                    </ToggleButton>
+                    <ToggleButton
+                        size="small"
+                        value={Mode.LONG}
+                        classes={{
+                            root: styles.toggle,
+                            selected: styles.selected,
+                        }}
+                    >
+                        Long Titles
+                    </ToggleButton>
+                </ToggleButtonGroup>
+                <p id={helpId} className={styles.help}>
+                    {modeHelp[mode]}
+                </p>
+            </div>
+
+            <div className={styles.actions}>
+                <GreenButton
+                    type="submit"
+                    text={isFetching ? "Creating…" : "Create playlist"}
+                    disabled={disabled}
+                />
+            </div>
+        </form>
     );
 };

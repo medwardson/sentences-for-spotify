@@ -4,7 +4,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useState } from "react";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import LogoutIcon from "@mui/icons-material/Logout";
-import { Menu, MenuItem } from "@mui/material";
+import { ListItemIcon, Menu, MenuItem } from "@mui/material";
 import { clearUserInfo } from "@/lib/store/userSlice";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
@@ -34,34 +34,34 @@ export const Profile = () => {
 
     return (
         <div className={styles.userInfo}>
-            <span>Hi, {displayName}!</span>
-            <a onClick={handleClick}>
+            <span className="hidden text-muted md:inline">Hi, {displayName}!</span>
+            <button
+                type="button"
+                className={styles.avatarButton}
+                aria-label="Account menu"
+                aria-haspopup="menu"
+                aria-expanded={open}
+                onClick={handleClick}
+            >
                 {profilePictureUrl ? (
                     <Image
                         height={40}
                         width={40}
                         className={styles.pfp}
                         src={profilePictureUrl}
-                        alt="Profile Picture"
+                        alt={`${displayName}'s profile picture`}
                         unoptimized
                     />
                 ) : (
-                    <AccountCircleIcon
-                        className={styles.pfp}
-                        sx={{ fontSize: 40 }}
-                    />
+                    <AccountCircleIcon sx={{ fontSize: 40 }} />
                 )}
-            </a>
+            </button>
             <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-                <MenuItem dense onClick={handleClose}>
-                    {" "}
-                    <button
-                        className="flex items-center"
-                        onClick={deleteCookie}
-                    >
-                        <LogoutIcon className="mr-2" />
-                        <p>Logout</p>
-                    </button>
+                <MenuItem dense onClick={deleteCookie}>
+                    <ListItemIcon>
+                        <LogoutIcon fontSize="small" />
+                    </ListItemIcon>
+                    Log out
                 </MenuItem>
             </Menu>
         </div>

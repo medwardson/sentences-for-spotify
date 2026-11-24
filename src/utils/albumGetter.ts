@@ -1,3 +1,5 @@
+import { AlbumCover } from "@/types/spotify";
+
 const client_id = process.env.NEXT_PUBLIC_CLIENT_ID;
 const client_secret = process.env.NEXT_CLIENT_SECRET;
 
@@ -20,7 +22,7 @@ class AlbumGetter {
     public async getAlbums() {
         try {
             const response = await fetch(
-                "https://api.spotify.com/v1/playlists/37i9dQZEVXbLRQDuF5jeBp/tracks",
+                "https://api.spotify.com/v1/playlists/37i9dQZEVXbLRQDuF5jeBp/items",
                 {
                     headers: {
                         Authorization: `Bearer ${this.token}`,
@@ -30,18 +32,30 @@ class AlbumGetter {
             if (response.ok) {
                 const data = await response.json();
 
-                const largestImageUrls = data.items.map((item: any) => {
-                    const largestImage = item.track.album.images.sort(
+                const seenAlbumIds = new Set<string>();
+                const albums: AlbumCover[] = [];
+
+                for (const item of data.items) {
+                    const album = item.item?.album;
+                    if (!album || seenAlbumIds.has(album.id)) continue;
+                    seenAlbumIds.add(album.id);
+
+                    const largestImage = [...album.images].sort(
                         (a: any, b: any) => b.height - a.height
                     )[0];
-                    return largestImage.url;
-                });
+                    if (!largestImage) continue;
 
-                const filtered = largestImageUrls.filter(
-                    (value: string, index: number, array: string[]) =>
-                        array.indexOf(value) === index
-                );
-                return filtered.slice(0, 20);
+                    albums.push({
+                        image: largestImage.url,
+                        url: album.external_urls.spotify,
+                        name: album.name,
+                        artist: album.artists[0]?.name,
+                    });
+                    // Spotify's guidelines cap a content shelf at 20 items
+                    if (albums.length === 20) break;
+                }
+
+                return albums;
             } else {
                 console.error(
                     "Failed to retrieve albums",

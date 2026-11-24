@@ -1,83 +1,108 @@
-.bottom-container {
-    height: 50%;
-    width: 100%;
-    background: linear-gradient(
-        to bottom,
-        rgba(33, 33, 33, 0.5),
-        rgba(33, 33, 33, 1)
-    );
+.page {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    gap: 3rem;
+    padding-block: 3rem;
 }
 
-.description {
-    padding: 4% 10% 2% 10%;
+.hero {
     display: flex;
-    width: 100%;
     flex-direction: column;
-    justify-content: center;
-    align-items: left;
+    gap: 2rem;
 }
 
-.header {
+.logo {
+    width: 6rem;
+    height: 6rem;
+    border-radius: 8px;
+}
+
+.heroText {
     display: flex;
-    height: 50%;
-    margin: 0.5rem;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
 }
 
 .title {
-    // "text-5xl font-bold"
-    line-height: 1;
-    font-size: 3rem;
-    font-weight: 700;
+    font-size: 2.25rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
 }
 
 .subtitle {
-    margin: 1rem 0;
+    max-width: 32rem;
+    font-size: 1.125rem;
+    color: var(--text-muted);
 }
 
-.titleBox {
-    margin-left: 3rem;
-    font-size: 1rem;
+.heroText > :last-child {
+    margin-top: 0.5rem;
 }
 
-.howItWorks {
-    // "text-xl font-bold mb-2"
-    font-size: 1.25rem;
+.steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.stepList {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.step {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 8px;
+    background: var(--surface);
+}
+
+.stepNumber {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    background: var(--surface-raised);
+    color: var(--green);
     font-weight: 700;
-    margin-bottom: 0.5rem;
 }
 
-@media (max-width: 560px) {
-    .header {
-        flex-direction: column;
+@media (min-width: 768px) {
+    .page {
+        gap: 4rem;
+        padding-block: 4rem;
+    }
+
+    .hero {
+        flex-direction: row;
+        align-items: center;
+        gap: 3rem;
     }
 
     .logo {
-        margin: 2rem 1rem 0rem 1rem;
-        height: 96px;
+        width: 13rem;
+        height: 13rem;
     }
 
     .title {
-        font-size: 1.75rem;
+        font-size: 3rem;
     }
 
-    .titleBox {
-        font-size: 0.75rem;
-        margin: 2rem;
+    .stepList {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
     }
 
-    .description {
-        font-size: 0.75rem;
-    }
-
-    .explanation {
-        font-size: 0.75rem;
-    }
-
-    .bottom-container {
-        margin-bottom: 1rem;
+    .step {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.75rem;
     }
 }

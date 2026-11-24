@@ -76,14 +76,12 @@ function Main() {
     }, [accessToken, getUserInfo, router]);
 
     return (
-        <>
-            <main className="flex flex-col items-center p-4 text-white w-full h-full">
-                <div className="flex flex-col items-center justify-center h-1/2">
-                    <h1 className="text-3xl font-bold mb-4">Loading...</h1>
-                    <CircularProgress />
-                </div>
-            </main>
-        </>
+        <div className="flex flex-col items-center p-4 w-full h-full">
+            <div className="flex flex-col items-center justify-center gap-4 h-1/2">
+                <h1 className="page-title">Loading...</h1>
+                <CircularProgress />
+            </div>
+        </div>
     );
 }
 

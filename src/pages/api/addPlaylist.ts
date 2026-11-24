@@ -6,7 +6,7 @@ export default async function handler(
     res: NextApiResponse
 ) {
     if (req.method === "POST") {
-        const { userId, url, title } = req.body;
+        const { userId, url, title, sentence = "" } = req.body;
         const userRef = db.collection("users").doc(userId);
 
         try {
@@ -14,6 +14,7 @@ export default async function handler(
                 searchHistory: admin.firestore.FieldValue.arrayUnion({
                     title,
                     url,
+                    sentence,
                 }),
             });
 
@@ -21,7 +22,7 @@ export default async function handler(
         } catch (error: any) {
             if (error.code === "not-found") {
                 await userRef.set({
-                    searchHistory: [{ title, url }],
+                    searchHistory: [{ title, url, sentence }],
                 });
                 return res
                     .status(200)

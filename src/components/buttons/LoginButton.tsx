@@ -19,5 +19,5 @@ export const LoginButton = () => {
         login();
     }
 
-    return <GreenButton text="Login with Spotify" onClick={handleLogin} />;
+    return <GreenButton text="Log in with Spotify" onClick={handleLogin} />;
 };
