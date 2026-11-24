@@ -1,10 +1,11 @@
+import { Mode } from "@/components/search/options/Options";
 import { SearchResult, TrackObject } from "@/types/spotify";
 import { addPlaylist } from "@/utils/database";
 
 class SpotifyClient {
     private headers: HeadersInit;
 
-    constructor(accessToken: string, private userId: string) {
+    constructor(private accessToken: string) {
         this.headers = {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
@@ -12,33 +13,38 @@ class SpotifyClient {
     }
 
     private url(name: string) {
-        return `https://api.spotify.com/v1/search?q=${name}&type=track&limit=50`;
+        return `https://api.spotify.com/v1/search?q=${name}&type=track&limit=10`;
     }
 
     async startCreationAttempt(
         sentence: string,
         title: string,
-        longerTitles: boolean
+        mode: Mode
     ): Promise<SearchResult> {
         const words = this.splitSentence(sentence);
 
         const songUris = await (async () => {
-            if (longerTitles) {
+            if (mode == Mode.LONG) {
                 return this.getSongsLong(words, [], new Map());
             } else {
                 return this.getSongsShort(words, new Map());
             }
         })();
         if (songUris?.length === 0 || !songUris) {
-            return { status: "failure", title };
+            return { status: "failure", title, sentence };
         }
 
         const { playlistId, url } = await this.makePlaylist(title);
         await this.addSongs(playlistId, songUris);
 
-        const result: SearchResult = { status: "success", url, title };
+        const result: SearchResult = {
+            status: "success",
+            url,
+            title,
+            sentence,
+        };
 
-        addPlaylist(this.userId, result);
+        addPlaylist(this.accessToken, result);
 
         return result;
     }
@@ -160,7 +166,12 @@ class SpotifyClient {
 
                 // If there are more pages of results, search them, but only if it's
                 // a shorter song title. Longer song title would be unlikely to be hidden
-                if (results.next && songName.split(" ").length <= 2) {
+                // Search caps limit at 10, so longer titles still page through the first 50
+                if (
+                    results.next &&
+                    (songName.split(" ").length <= 2 ||
+                        results.offset + results.items.length < 50)
+                ) {
                     return this.searchSong(results.next, songName);
                 }
 
@@ -169,17 +180,14 @@ class SpotifyClient {
     }
 
     private async makePlaylist(title: string) {
-        return fetch(
-            `https://api.spotify.com/v1/users/${this.userId}/playlists`,
-            {
-                method: "POST",
-                headers: this.headers,
-                body: JSON.stringify({
-                    name: title,
-                    description: "Add a description for your playlist.",
-                }),
-            }
-        )
+        return fetch("https://api.spotify.com/v1/me/playlists", {
+            method: "POST",
+            headers: this.headers,
+            body: JSON.stringify({
+                name: title,
+                description: "Add a description for your playlist.",
+            }),
+        })
             .then((res) => res.json())
             .then((data) => {
                 return { playlistId: data.id, url: data.external_urls.spotify };
@@ -187,13 +195,19 @@ class SpotifyClient {
     }
 
     private async addSongs(playlistId: string, songUris: string[]) {
-        fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
-            method: "POST",
-            headers: this.headers,
-            body: JSON.stringify({
-                uris: songUris,
-            }),
-        });
+        // Spotify takes at most 100 items per request; sequential keeps the order
+        for (let i = 0; i < songUris.length; i += 100) {
+            await fetch(
+                `https://api.spotify.com/v1/playlists/${playlistId}/items`,
+                {
+                    method: "POST",
+                    headers: this.headers,
+                    body: JSON.stringify({
+                        uris: songUris.slice(i, i + 100),
+                    }),
+                }
+            );
+        }
     }
 }
 

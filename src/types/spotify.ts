@@ -23,6 +23,7 @@ export interface TrackObject {
 export interface SearchResult {
     url?: string;
     title?: string;
+    sentence?: string;
     status: "success" | "failure";
 }
 
@@ -30,4 +31,12 @@ export interface UserInfo {
     id: string | undefined;
     accessToken: string | undefined;
     displayName: string | undefined;
+    profilePictureUrl: string | undefined;
+}
+
+export interface AlbumCover {
+    image: string;
+    url?: string;
+    name?: string;
+    artist?: string;
 }

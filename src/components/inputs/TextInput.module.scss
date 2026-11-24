@@ -1,0 +1,30 @@
+.input-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.label {
+    font-size: 0.875rem;
+    font-weight: 700;
+}
+
+.input {
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    border: 1px solid var(--control-border);
+    background-color: var(--surface-raised);
+    color: var(--text);
+    font-size: 1rem;
+
+    &:hover {
+        border-color: var(--text-muted);
+    }
+
+    &::placeholder {
+        color: var(--text-muted);
+    }
+}

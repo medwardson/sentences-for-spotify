@@ -4,4 +4,5 @@ export interface User {
     info: UserInfo;
     recentResults: SearchResult[];
     fullHistory: SearchResult[];
+    historyLoaded: boolean;
 }

@@ -1,19 +1,21 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { db } from "../../utils/firebaseAdmin";
+import { requireSpotifyUser } from "../../utils/requireSpotifyUser";
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
     if (req.method === "POST") {
-        const { id, username, time } = req.body;
+        const user = await requireSpotifyUser(req, res);
+        if (!user) return;
 
         try {
-            const docRef = db.collection("users").doc(id);
+            const docRef = db.collection("users").doc(user.id);
             await docRef.set(
                 {
-                    username: username,
-                    time: time,
+                    username: user.display_name,
+                    time: new Date().toISOString().slice(0, 10).replace(/-/g, ""),
                 },
                 { merge: true }
             );

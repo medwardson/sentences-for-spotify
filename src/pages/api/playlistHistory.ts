@@ -1,14 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { db } from "../../utils/firebaseAdmin";
 import { SearchResult } from "@/types/spotify";
+import { requireSpotifyUser } from "../../utils/requireSpotifyUser";
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
     if (req.method === "POST") {
-        const { userId } = req.body;
-        const userRef = db.collection("users").doc(userId);
+        const user = await requireSpotifyUser(req, res);
+        if (!user) return;
+
+        const userRef = db.collection("users").doc(user.id);
 
         try {
             const doc = await userRef.get();

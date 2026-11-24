@@ -1,39 +1,31 @@
 import { SearchResult } from "@/types/spotify";
 
-export const addPlaylist = async (userId: string, sr: SearchResult) => {
+export const addPlaylist = async (accessToken: string, sr: SearchResult) => {
     await fetch("/api/addPlaylist", {
         method: "POST",
         headers: {
+            Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-            userId,
-            ...sr,
-        }),
+        body: JSON.stringify(sr),
     });
 };
 
-export const sendData = async (id: string, username: string, time: Date) => {
+export const sendData = async (accessToken: string) => {
     await fetchWithTimeout("/api/user", {
         method: "POST",
         headers: {
-            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({
-            id: id,
-            username: username,
-            time: time.toDateString(),
-        }),
     });
 };
 
-export const getPlaylistHistory = async (userId: string) => {
+export const getPlaylistHistory = async (accessToken: string) => {
     const response = await fetchWithTimeout("/api/playlistHistory", {
         method: "POST",
         headers: {
-            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ userId }),
     });
 
     const data = await response.json();
@@ -41,7 +33,7 @@ export const getPlaylistHistory = async (userId: string) => {
 };
 
 const fetchWithTimeout = async (
-    url: string,
+    path: string,
     options: RequestInit = {},
     timeout: number = 7500
 ) => {
@@ -50,7 +42,7 @@ const fetchWithTimeout = async (
 
     try {
         const timeoutId = setTimeout(() => controller.abort(), timeout);
-        const response = await fetch(url, options);
+        const response = await fetch(path, options);
         clearTimeout(timeoutId);
 
         if (!response.ok) {

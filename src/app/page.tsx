@@ -1,59 +1,77 @@
-"use client";
+import logo from "../../public/images/newLogo.svg";
 
-import { useEffect } from "react";
-import Cookies from "js-cookie";
-import { useRouter } from "next/navigation";
-import { login } from "@/utils/spotifyAuth";
-import { useHeader } from "@/components/HeaderContext";
+import styles from "@/app/page.module.scss";
+import { LoginButton } from "@/components/buttons/LoginButton";
+import ImageCarousel from "@/components/image-carousel/ImageCarousel";
+import SpotifyAttribution from "@/components/spotify-attribution/SpotifyAttribution";
+import { AlbumCover } from "@/types/spotify";
+import { db } from "@/utils/firebaseAdmin";
+import Image from "next/image";
 
-export default function Home() {
-    const router = useRouter();
-    const { setShowBackButton, setShowLogoutButton } = useHeader();
+export const revalidate = 86400;
 
-    useEffect(() => {
-        setShowBackButton(false);
-        setShowLogoutButton(false);
-    }, []);
+const steps = [
+    "Log in with Spotify.",
+    "Type a sentence and pick a playlist title.",
+    "We build a playlist whose song titles spell it out.",
+];
 
-    useEffect(() => {
-        const existingAccessToken = Cookies.get("access_token");
-
-        if (existingAccessToken) router.push("/loading");
-    }, []);
+export default async function Home() {
+    const doc = await db.collection("albums").doc("albums").get();
+    // docs written before the cron moved to objects hold bare cover URLs
+    const albums: AlbumCover[] = (doc.data()?.albums ?? []).map(
+        (album: AlbumCover | string) =>
+            typeof album === "string" ? { image: album } : album
+    );
 
     return (
-        <main>
-            <div className="flex flex-col items-center text-white p-4">
-                <button
-                    id="login"
-                    className="rounded-full bg-green-700 py-3 px-8 my-8 hover:bg-green-500"
-                    onClick={login}
-                >
-                    Login with Spotify
-                </button>
-                <div>
-                    <div className="text-2xl text-center my-4 font-bold">
-                        FAQ
-                    </div>
-                    <ul>
-                        {[
-                            {
-                                q: "What is this?",
-                                a: "SpotifySentences is a fun way to create playlists whose songs' titles match the words in your sentence.",
-                            },
-                            {
-                                q: "How does it work?",
-                                a: "After logging in with Spotify, you can enter a sentence and a playlist title. Then, SpotifySentences will create a playlist on your account with songs whose titles match the words in your sentence.",
-                            },
-                        ].map(({ q, a }) => (
-                            <li key={q} className="text-left my-4">
-                                <div className="font-bold text-xl">{q}</div>
-                                <div className="text-sm">{a}</div>
-                            </li>
-                        ))}
-                    </ul>
+        <div className={styles.page}>
+            <section className={`content-container ${styles.hero}`}>
+                <Image
+                    className={styles.logo}
+                    src={logo}
+                    alt="Sentences for Spotify logo"
+                    priority
+                />
+                <div className={styles.heroText}>
+                    <h1 className={styles.title}>Sentences for Spotify</h1>
+                    <p className={styles.subtitle}>
+                        Turn any sentence into a playlist whose song titles
+                        spell it out.
+                    </p>
+                    <LoginButton />
                 </div>
-            </div>
-        </main>
+            </section>
+
+            <section className={`content-container ${styles.steps}`}>
+                <h2 className="section-heading">How it works</h2>
+                <ol className={styles.stepList}>
+                    {steps.map((step, i) => (
+                        <li key={step} className={styles.step}>
+                            <span className={styles.stepNumber}>{i + 1}</span>
+                            {step}
+                        </li>
+                    ))}
+                </ol>
+            </section>
+
+            {albums.length > 0 && (
+                <ImageCarousel albums={albums}>
+                    <SpotifyAttribution />
+                </ImageCarousel>
+            )}
+
+            <footer className={`content-container ${styles.footer}`}>
+                <span>Not affiliated with or endorsed by Spotify.</span>
+                <a
+                    href="https://github.com/medwardson/sentences-for-spotify"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-link"
+                >
+                    Source on GitHub
+                </a>
+            </footer>
+        </div>
     );
 }

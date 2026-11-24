@@ -7,9 +7,11 @@ const initialState: User = {
         id: undefined,
         displayName: undefined,
         accessToken: undefined,
+        profilePictureUrl: undefined,
     },
     recentResults: [],
     fullHistory: [],
+    historyLoaded: false,
 };
 
 const userSlice = createSlice({
@@ -22,11 +24,13 @@ const userSlice = createSlice({
                 id: string;
                 displayName: string;
                 accessToken: string;
+                profilePictureUrl?: string;
             }>
         ) => {
             state.info.id = action.payload.id;
             state.info.accessToken = action.payload.accessToken;
             state.info.displayName = action.payload.displayName;
+            state.info.profilePictureUrl = action.payload.profilePictureUrl;
         },
         clearUserInfo: () => {
             return initialState;
@@ -40,11 +44,18 @@ const userSlice = createSlice({
         ) => {
             state.recentResults.unshift(action.payload.sr);
 
-            if (state.fullHistory.length > 1)
-                state.fullHistory.unshift(action.payload.sr);
+            if (state.historyLoaded) state.fullHistory.unshift(action.payload.sr);
         },
         setFullHistory: (state, action: PayloadAction<SearchResult[]>) => {
-            state.fullHistory = action.payload;
+            const saved = new Set(action.payload.map((sr) => sr.url));
+            // results made before the load finished may not be saved yet, and failures never are
+            state.fullHistory = [
+                ...state.recentResults.filter(
+                    (sr) => !sr.url || !saved.has(sr.url)
+                ),
+                ...action.payload,
+            ];
+            state.historyLoaded = true;
         },
     },
 });

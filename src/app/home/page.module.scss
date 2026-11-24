@@ -1,0 +1,12 @@
+.content {
+    display: grid;
+    align-items: start;
+    gap: 2rem;
+    padding-bottom: 3rem;
+}
+
+@media (min-width: 768px) {
+    .content {
+        grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    }
+}
