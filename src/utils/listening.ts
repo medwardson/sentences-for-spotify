@@ -140,6 +140,8 @@ async function fetchListening(accessToken: string): Promise<Listening> {
     };
 }
 
+const refreshes = new Map<string, Promise<Listening>>();
+
 export async function getListening(
     accessToken: string,
     userId: string
@@ -150,7 +152,15 @@ export async function getListening(
         return cached;
     }
 
-    const listening = await fetchListening(accessToken);
-    await ref.set(listening);
-    return listening;
+    let refresh = refreshes.get(userId);
+    if (!refresh) {
+        refresh = fetchListening(accessToken)
+            .then(async (listening) => {
+                await ref.set(listening);
+                return listening;
+            })
+            .finally(() => refreshes.delete(userId));
+        refreshes.set(userId, refresh);
+    }
+    return refresh;
 }
