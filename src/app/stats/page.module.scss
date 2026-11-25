@@ -1,28 +1,60 @@
-.tabs {
+.picker {
     display: flex;
-    justify-content: center;
-    gap: 1.5rem;
+    gap: 2px;
     width: 100%;
-    border-bottom: 1px solid var(--surface-raised);
+    max-width: 560px;
+    padding: 4px;
+    border-radius: 14px;
+    background: var(--surface);
 }
 
-.tab {
-    min-height: 44px;
-    margin-bottom: -1px;
-    padding-inline: 0.25rem;
-    border-bottom: 2px solid transparent;
-    font-size: 1.125rem;
+.pick {
+    flex: 1;
+    min-width: 0;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 0;
+    border-radius: 10px;
+    font-size: 11px;
     font-weight: 700;
-    color: var(--text-muted);
+    color: #b3b3b3;
 
     &:hover {
         color: var(--text);
+
+        svg {
+            color: #b3b3b3;
+        }
     }
 
     &[aria-pressed="true"] {
-        color: var(--text);
-        border-bottom-color: var(--green);
+        background: #2a2a2a;
+        color: #ffffff;
+
+        svg {
+            color: var(--green);
+        }
     }
+}
+
+// the parent column's 1.5rem gap, less 6px, puts this about 18px below the picker
+.selected {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    margin-top: -6px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.selectedName {
+    font-size: 17px;
+    font-weight: 800;
 }
 
 .carousel {
