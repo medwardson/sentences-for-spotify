@@ -947,11 +947,45 @@ function ClockCard({
 
 const SHELF_MUTED = "#d7c4ae";
 const COVER = 285;
+const COVER_TIMEOUT_MS = 2500;
+
+type Album = NonNullable<ReturnType<typeof shelfAlbums>>[number];
+
+// satori fetches remote images with no timeout, so a stalled CDN hangs the whole render
+async function loadCovers(albums: Album[]) {
+    let timedOut = 0;
+    let failed = 0;
+    let slowest = 0;
+    const covers = await Promise.all(
+        albums.map(async (album) => {
+            const started = performance.now();
+            try {
+                const res = await fetch(album.image, {
+                    signal: AbortSignal.timeout(COVER_TIMEOUT_MS),
+                });
+                if (!res.ok) throw new Error(`${res.status}`);
+                const type = res.headers.get("content-type") ?? "image/jpeg";
+                const data = Buffer.from(await res.arrayBuffer());
+                return `data:${type};base64,${data.toString("base64")}`;
+            } catch (error) {
+                if ((error as Error).name === "TimeoutError") timedOut++;
+                else failed++;
+                return null;
+            } finally {
+                slowest = Math.max(slowest, performance.now() - started);
+            }
+        })
+    );
+    (timedOut || failed ? console.warn : console.log)(
+        `shelf covers: ${albums.length - timedOut - failed} loaded, ${timedOut} timed out, ${failed} failed, slowest ${Math.round(slowest)}ms`
+    );
+    return albums.map((album, i) => ({ ...album, image: covers[i] }));
+}
 
 function ShelfCard({
     albums,
 }: {
-    albums: NonNullable<ReturnType<typeof shelfAlbums>>;
+    albums: Awaited<ReturnType<typeof loadCovers>>;
 }) {
     const shelves = [0, 3, 6]
         .map((i) => albums.slice(i, i + 3))
@@ -1010,20 +1044,32 @@ function ShelfCard({
                         style={{ display: "flex", flexDirection: "column" }}
                     >
                         <div style={row}>
-                            {shelf.map((album) => (
-                                <img
-                                    key={album.image}
-                                    src={album.image}
-                                    alt={`Album cover: ${album.title} by ${album.artist}`}
-                                    width={COVER}
-                                    height={COVER}
-                                    style={{
-                                        borderRadius: 8,
-                                        boxShadow:
-                                            "0 12px 28px rgba(0,0,0,0.35)",
-                                    }}
-                                />
-                            ))}
+                            {shelf.map((album) =>
+                                album.image ? (
+                                    <img
+                                        key={`${album.title}\u0000${album.artist}`}
+                                        src={album.image}
+                                        alt={`Album cover: ${album.title} by ${album.artist}`}
+                                        width={COVER}
+                                        height={COVER}
+                                        style={{
+                                            borderRadius: 8,
+                                            boxShadow:
+                                                "0 12px 28px rgba(0,0,0,0.35)",
+                                        }}
+                                    />
+                                ) : (
+                                    <div
+                                        key={`${album.title}\u0000${album.artist}`}
+                                        style={{
+                                            width: COVER,
+                                            height: COVER,
+                                            borderRadius: 8,
+                                            background: "#4a3a30",
+                                        }}
+                                    />
+                                )
+                            )}
                         </div>
                         <div
                             style={{
@@ -1036,7 +1082,7 @@ function ShelfCard({
                         <div style={{ ...row, paddingTop: 16 }}>
                             {shelf.map((album) => (
                                 <div
-                                    key={album.image}
+                                    key={`${album.title}\u0000${album.artist}`}
                                     style={{
                                         width: COVER,
                                         display: "flex",
@@ -1317,6 +1363,7 @@ export async function renderCard(
     }: { range: TimeRange; timeZone: string; now?: Date }
 ): Promise<ImageResponse | null> {
     const { topTracks, topArtists, recent } = listening;
+    const fonts = loadFonts(FONT_QUERIES[card]);
     let design: React.ReactElement;
     if (card === "rotation") {
         const tracks = topTracks[range];
@@ -1341,7 +1388,7 @@ export async function renderCard(
     } else if (card === "shelf") {
         const albums = shelfAlbums(topTracks.medium_term);
         if (!albums) return null;
-        design = <ShelfCard albums={albums} />;
+        design = <ShelfCard albums={await loadCovers(albums)} />;
     } else {
         const stats = listenerStats({
             recent,
@@ -1355,10 +1402,10 @@ export async function renderCard(
         design = <ListenerCard stats={stats} now={now} />;
     }
 
-    const fonts = await loadFonts(FONT_QUERIES[card]);
+    const loaded = await fonts;
     return new ImageResponse(design, {
         width: 1080,
         height: 1920,
-        fonts: fonts.length ? fonts : undefined,
+        fonts: loaded.length ? loaded : undefined,
     });
 }

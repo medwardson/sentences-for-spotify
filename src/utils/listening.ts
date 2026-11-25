@@ -67,6 +67,19 @@ interface RawPlay {
     track: RawTrack;
 }
 
+// the shelf share card draws covers 285px wide; Spotify serves 640, 300 and 64
+const COVER_MIN_WIDTH = 285;
+
+function coverUrl(images: RawTrack["album"]["images"]) {
+    const bySize = [...images].sort(
+        (a, b) => (a.width ?? 0) - (b.width ?? 0)
+    );
+    const cover =
+        bySize.find((image) => (image.width ?? 0) >= COVER_MIN_WIDTH) ??
+        bySize.at(-1);
+    return cover?.url ?? null;
+}
+
 const slimTrack = (t: RawTrack): ListeningTrack => ({
     id: t.id,
     name: t.name,
@@ -75,10 +88,7 @@ const slimTrack = (t: RawTrack): ListeningTrack => ({
     album: {
         name: t.album.name,
         releaseDate: t.album.release_date,
-        image:
-            [...t.album.images].sort(
-                (a, b) => (b.width ?? 0) - (a.width ?? 0)
-            )[0]?.url ?? null,
+        image: coverUrl(t.album.images),
     },
 });
 
