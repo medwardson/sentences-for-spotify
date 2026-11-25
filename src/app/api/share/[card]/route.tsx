@@ -9,7 +9,6 @@ import {
 import { SpotifyUser, getSpotifyUser } from "@/utils/requireSpotifyUser";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
 
 const isCard = (card: string): card is Card =>
     (CARDS as readonly string[]).includes(card);
