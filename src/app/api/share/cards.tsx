@@ -199,35 +199,52 @@ function RotationCard({
                             style={{
                                 maxWidth: 936,
                                 transform: `rotate(${TILTS[i % TILTS.length]})`,
-                                background: bg,
-                                color: fg,
-                                padding: "28px 36px 24px",
-                                borderRadius: 8,
-                                boxShadow:
-                                    "0 4px 0 rgba(0,0,0,0.18), 0 16px 36px rgba(0,0,0,0.12)",
+                                position: "relative",
                                 display: "flex",
-                                flexDirection: "column",
-                                gap: 8,
                             }}
                         >
-                            <span
+                            {/* stands in for a boxShadow, which resvg blurs slowly */}
+                            <div
                                 style={{
-                                    fontFamily: "DM Serif Display",
-                                    fontSize: 68,
-                                    lineHeight: 1,
+                                    position: "absolute",
+                                    top: 4,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: -4,
+                                    borderRadius: 8,
+                                    background: "rgba(0,0,0,0.18)",
+                                }}
+                            />
+                            <div
+                                style={{
+                                    background: bg,
+                                    color: fg,
+                                    padding: "28px 36px 24px",
+                                    borderRadius: 8,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 8,
                                 }}
                             >
-                                {track.name}
-                            </span>
-                            <span
-                                style={{
-                                    fontSize: 24,
-                                    fontWeight: 600,
-                                    opacity: 0.8,
-                                }}
-                            >
-                                {track.artists[0]}
-                            </span>
+                                <span
+                                    style={{
+                                        fontFamily: "DM Serif Display",
+                                        fontSize: 68,
+                                        lineHeight: 1,
+                                    }}
+                                >
+                                    {track.name}
+                                </span>
+                                <span
+                                    style={{
+                                        fontSize: 24,
+                                        fontWeight: 600,
+                                        opacity: 0.8,
+                                    }}
+                                >
+                                    {track.artists[0]}
+                                </span>
+                            </div>
                         </div>
                     );
                 })}
@@ -947,6 +964,8 @@ function ClockCard({
 
 const SHELF_MUTED = "#d7c4ae";
 const COVER = 285;
+// ellipsizes like `ellipsis` without overflow clip paths, which resvg renders slowly
+const oneLine: React.CSSProperties = { display: "block", lineClamp: 1 };
 
 function ShelfCard({
     albums,
@@ -1017,11 +1036,7 @@ function ShelfCard({
                                     alt={`Album cover: ${album.title} by ${album.artist}`}
                                     width={COVER}
                                     height={COVER}
-                                    style={{
-                                        borderRadius: 8,
-                                        boxShadow:
-                                            "0 12px 28px rgba(0,0,0,0.35)",
-                                    }}
+                                    style={{ borderRadius: 8 }}
                                 />
                             ))}
                         </div>
@@ -1030,9 +1045,22 @@ function ShelfCard({
                                 height: 24,
                                 borderRadius: 4,
                                 background: "#7a5439",
-                                boxShadow: "0 12px 20px rgba(0,0,0,0.35)",
+                                position: "relative",
+                                display: "flex",
                             }}
-                        />
+                        >
+                            <div
+                                style={{
+                                    position: "absolute",
+                                    top: 24,
+                                    left: 4,
+                                    right: 4,
+                                    bottom: -20,
+                                    backgroundImage:
+                                        "linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0))",
+                                }}
+                            />
+                        </div>
                         <div style={{ ...row, paddingTop: 16 }}>
                             {shelf.map((album) => (
                                 <div
@@ -1048,7 +1076,7 @@ function ShelfCard({
                                         style={{
                                             fontSize: 26,
                                             fontWeight: 800,
-                                            ...ellipsis,
+                                            ...oneLine,
                                         }}
                                     >
                                         {album.title}
@@ -1057,7 +1085,7 @@ function ShelfCard({
                                         style={{
                                             fontSize: 24,
                                             color: SHELF_MUTED,
-                                            ...ellipsis,
+                                            ...oneLine,
                                         }}
                                     >
                                         {album.artist}
