@@ -20,11 +20,18 @@ export interface TrackObject {
     uri: string;
     is_local: boolean;
 }
+export interface UnmatchedSpan {
+    startWord: number;
+    endWordExclusive: number;
+    text: string;
+}
+
 export interface SearchResult {
     url?: string;
     title?: string;
     sentence?: string;
     status: "success" | "failure";
+    unmatchedSpans?: UnmatchedSpan[];
 }
 
 export interface UserInfo {

@@ -1,15 +1,26 @@
 import { Mode } from "@/types/query";
-import { SearchResult, TrackObject } from "@/types/spotify";
+import { SearchResult, TrackObject, UnmatchedSpan } from "@/types/spotify";
 import { addPlaylist } from "@/utils/database";
-import { matchPlaylistTracks } from "@/utils/playlistMatcher";
+import { findUnmatchedSpans, matchPlaylistTracks } from "@/utils/playlistMatcher";
 import { normalizeTitle } from "@/utils/titleNormalization";
 
 const LONG_TITLE_RESULT_LIMIT = 50;
 const SEARCH_CACHE_TTL_MS = 2 * 60 * 1000;
 const SEARCH_CACHE_MAX_ENTRIES = 512;
 
+type SearchPhaseMetrics = {
+    startedAt?: number;
+    elapsedMs: number;
+    lookups: number;
+    requests: number;
+};
+
+function searchPhaseMetrics(): SearchPhaseMetrics {
+    return { elapsedMs: 0, lookups: 0, requests: 0 };
+}
+
 export class SpotifyPlaylistSearchError extends Error {
-    constructor(cause: unknown) {
+    constructor(cause: unknown, readonly unmatchedSpans: UnmatchedSpan[] = []) {
         super("Could not finish searching Spotify for playlist tracks", { cause });
     }
 }
@@ -54,19 +65,44 @@ class SpotifyClient {
         mode: Mode,
         options?: { visibility?: "private"; searchSignal?: AbortSignal }
     ): Promise<SearchResult> {
+        const startedAt = Date.now();
+        const firstPage = searchPhaseMetrics();
+        const fallback = searchPhaseMetrics();
+        const matchedTitles = new Set<string>();
+        let outcome = "error";
         let songUris: string[];
         try {
             options?.searchSignal?.throwIfAborted();
-            songUris = await matchPlaylistTracks(sentence, mode, (name, firstPageOnly) =>
-                this.findTrack(name, options?.searchSignal, firstPageOnly)
-            );
+            songUris = await matchPlaylistTracks(sentence, mode, async (name, firstPageOnly) => {
+                const phase = firstPageOnly ? firstPage : fallback;
+                phase.startedAt ??= Date.now();
+                phase.lookups++;
+                try {
+                    const track = await this.findTrack(name, options?.searchSignal, firstPageOnly, phase);
+                    if (track) matchedTitles.add(name);
+                    return track;
+                } finally {
+                    phase.elapsedMs = Date.now() - phase.startedAt;
+                }
+            });
             options?.searchSignal?.throwIfAborted();
+            outcome = songUris.length > 0 ? "matched" : "no_match";
         } catch (error) {
             if (!options?.searchSignal) throw error;
-            throw new SpotifyPlaylistSearchError(error);
+            if (options.searchSignal.aborted) outcome = "aborted";
+            throw new SpotifyPlaylistSearchError(error, findUnmatchedSpans(sentence, matchedTitles));
+        } finally {
+            if (options?.searchSignal) {
+                const summarize = ({ elapsedMs, lookups, requests }: SearchPhaseMetrics) =>
+                    ({ elapsedMs, lookups, requests });
+                console.info("spotify_playlist_search", JSON.stringify({
+                    mode, outcome, elapsedMs: Date.now() - startedAt,
+                    firstPage: summarize(firstPage), fallback: summarize(fallback),
+                }));
+            }
         }
         if (songUris.length === 0) {
-            return { status: "failure", title, sentence };
+            return { status: "failure", title, sentence, unmatchedSpans: findUnmatchedSpans(sentence, matchedTitles) };
         }
 
         const { playlistId, url } = await this.makePlaylist(title, options?.visibility);
@@ -78,12 +114,12 @@ class SpotifyClient {
         return { status: "success", url, title, sentence };
     }
 
-    private async findTrack(songName: string, signal?: AbortSignal, firstPageOnly = false): Promise<string | undefined> {
+    private async findTrack(songName: string, signal: AbortSignal | undefined, firstPageOnly: boolean | undefined, phase: SearchPhaseMetrics): Promise<string | undefined> {
         const cached = this.searchCache.get(songName);
         if (cached && cached.expiresAt > Date.now()) return cached.uri;
         this.searchCache.delete(songName);
 
-        const uri = await this.searchSong(songName, signal, firstPageOnly);
+        const uri = await this.searchSong(songName, signal, firstPageOnly, phase);
         // A miss on the first page is not a miss for the full search.
         if (firstPageOnly && !uri) return undefined;
         this.searchCache.set(songName, {
@@ -97,10 +133,12 @@ class SpotifyClient {
         return uri;
     }
 
-    private async searchSong(songName: string, signal?: AbortSignal, firstPageOnly = false): Promise<string | undefined> {
+    private async searchSong(songName: string, signal: AbortSignal | undefined, firstPageOnly: boolean | undefined, phase: SearchPhaseMetrics): Promise<string | undefined> {
         const canSearchPastLimit = songName.split(" ").length <= 2;
         let url: string | null = this.url(songName);
         while (url) {
+            signal?.throwIfAborted();
+            phase.requests++;
             const response = await fetch(url, { headers: this.headers, signal });
             if (!response.ok) {
                 throw new Error(`Could not search Spotify tracks (${response.status})`);
