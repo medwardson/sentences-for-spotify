@@ -7,6 +7,7 @@ import SpotifyAttribution from "@/components/spotify-attribution/SpotifyAttribut
 import { AlbumCover } from "@/types/spotify";
 import { db } from "@/utils/firebaseAdmin";
 import Image from "next/image";
+import Link from "next/link";
 
 export const revalidate = 86400;
 
@@ -63,6 +64,7 @@ export default async function Home() {
 
             <footer className={`content-container ${styles.footer}`}>
                 <span>Not affiliated with or endorsed by Spotify.</span>
+                <Link href="/terms" className="text-link">Terms of service</Link>
                 <a
                     href="https://github.com/medwardson/sentences-for-spotify"
                     target="_blank"

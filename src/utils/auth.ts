@@ -1,3 +1,13 @@
+import { createHash } from "node:crypto";
+
+export const deleteDataPath = "/delete-data";
+export const deleteDataCookie = "delete_data_access_token";
+export const deleteDataStatePrefix = "delete-data.";
+
+export function deleteDataConfirmation(token: string) {
+    return createHash("sha256").update(token).digest("base64url");
+}
+
 export const cookie = (
     name: string,
     value: string,
@@ -10,6 +20,11 @@ export const cookie = (
 
 export const clearCookie = (name: string, path: string) =>
     cookie(name, "", path, 0);
+
+export const clearWebsiteSessionCookies = () => [
+    clearCookie("access_token", "/"),
+    clearCookie("refresh_token", "/api/auth"),
+];
 
 export const requestToken = async (
     params: Record<string, string>,
