@@ -2,6 +2,7 @@ import { Mode } from "@/types/query";
 import { SearchResult, TrackObject } from "@/types/spotify";
 import { addPlaylist } from "@/utils/database";
 import { matchPlaylistTracks } from "@/utils/playlistMatcher";
+import { normalizeTitle } from "@/utils/titleNormalization";
 
 const LONG_TITLE_RESULT_LIMIT = 50;
 const SEARCH_CACHE_TTL_MS = 2 * 60 * 1000;
@@ -56,8 +57,8 @@ class SpotifyClient {
         let songUris: string[];
         try {
             options?.searchSignal?.throwIfAborted();
-            songUris = await matchPlaylistTracks(sentence, mode, (name) =>
-                this.findTrack(name, options?.searchSignal)
+            songUris = await matchPlaylistTracks(sentence, mode, (name, firstPageOnly) =>
+                this.findTrack(name, options?.searchSignal, firstPageOnly)
             );
             options?.searchSignal?.throwIfAborted();
         } catch (error) {
@@ -77,12 +78,14 @@ class SpotifyClient {
         return { status: "success", url, title, sentence };
     }
 
-    private async findTrack(songName: string, signal?: AbortSignal): Promise<string | undefined> {
+    private async findTrack(songName: string, signal?: AbortSignal, firstPageOnly = false): Promise<string | undefined> {
         const cached = this.searchCache.get(songName);
         if (cached && cached.expiresAt > Date.now()) return cached.uri;
         this.searchCache.delete(songName);
 
-        const uri = await this.searchSong(songName, signal);
+        const uri = await this.searchSong(songName, signal, firstPageOnly);
+        // A miss on the first page is not a miss for the full search.
+        if (firstPageOnly && !uri) return undefined;
         this.searchCache.set(songName, {
             uri,
             expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
@@ -94,7 +97,7 @@ class SpotifyClient {
         return uri;
     }
 
-    private async searchSong(songName: string, signal?: AbortSignal): Promise<string | undefined> {
+    private async searchSong(songName: string, signal?: AbortSignal, firstPageOnly = false): Promise<string | undefined> {
         const canSearchPastLimit = songName.split(" ").length <= 2;
         let url: string | null = this.url(songName);
         while (url) {
@@ -106,9 +109,10 @@ class SpotifyClient {
             const { tracks } = await response.json();
             const items: TrackObject[] = tracks.items;
             const match = items.find(
-                (item) => item.name.toLowerCase() === songName
+                (item) => normalizeTitle(item.name) === songName
             );
             if (match) return match.uri;
+            if (firstPageOnly) return undefined;
 
             if (
                 !canSearchPastLimit &&
