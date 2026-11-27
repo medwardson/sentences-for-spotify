@@ -17,11 +17,11 @@ import { SearchResult } from "@/types/spotify";
 import SpotifyClient from "@/utils/spotify";
 import { combineClasses } from "@/utils/styles";
 import { ToggleButton, ToggleButtonGroup } from "@mui/material";
-import { FC, FormEvent, useId } from "react";
+import { FC, FormEvent, useId, useMemo } from "react";
 
 const modeHelp: Record<Mode, string> = {
     [Mode.SHORT]: "One song per word where possible; longer titles fill the gaps",
-    [Mode.LONG]: "Fewest songs, using the longest matching titles. Slower to run",
+    [Mode.LONG]: "Tries the longest matching titles first",
 };
 
 interface OptionsProps {
@@ -36,10 +36,12 @@ export const Options: FC<OptionsProps> = ({ className }) => {
     );
     const { id, accessToken } = useAppSelector((state) => state.user.info);
 
-    // TODO: maybe we can use DI
-    if (!accessToken || !id) return;
+    const client = useMemo(
+        () => (accessToken ? new SpotifyClient(accessToken) : undefined),
+        [accessToken]
+    );
+    if (!client || !id) return;
 
-    const client = new SpotifyClient(accessToken);
     const disabled = sentence.length === 0 || title.length === 0 || isFetching;
 
     const submit = async (event: FormEvent) => {

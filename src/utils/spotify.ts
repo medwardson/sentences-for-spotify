@@ -1,9 +1,18 @@
-import { Mode } from "@/components/search/options/Options";
+import { Mode } from "@/types/query";
 import { SearchResult, TrackObject } from "@/types/spotify";
 import { addPlaylist } from "@/utils/database";
+import { matchPlaylistTracks } from "@/utils/playlistMatcher";
+
+const LONG_TITLE_RESULT_LIMIT = 50;
+const SEARCH_CACHE_TTL_MS = 2 * 60 * 1000;
+const SEARCH_CACHE_MAX_ENTRIES = 512;
 
 class SpotifyClient {
     private headers: HeadersInit;
+    private readonly searchCache = new Map<string, {
+        uri: string | undefined;
+        expiresAt: number;
+    }>();
 
     constructor(private accessToken: string) {
         this.headers = {
@@ -21,16 +30,10 @@ class SpotifyClient {
         title: string,
         mode: Mode
     ): Promise<SearchResult> {
-        const words = this.splitSentence(sentence);
-
-        const songUris = await (async () => {
-            if (mode == Mode.LONG) {
-                return this.getSongsLong(words, [], new Map());
-            } else {
-                return this.getSongsShort(words, new Map());
-            }
-        })();
-        if (songUris?.length === 0 || !songUris) {
+        const songUris = await matchPlaylistTracks(sentence, mode, (name) =>
+            this.findTrack(name)
+        );
+        if (songUris.length === 0) {
             return { status: "failure", title, sentence };
         }
 
@@ -49,132 +52,48 @@ class SpotifyClient {
         return result;
     }
 
-    private splitSentence(sentence: string) {
-        return sentence
-            .split(" ")
-            .map((word) => word.replace(/[^A-Za-z0-9]/g, ""))
-            .filter((word) => word.length > 0);
+    private async findTrack(songName: string): Promise<string | undefined> {
+        const cached = this.searchCache.get(songName);
+        if (cached && cached.expiresAt > Date.now()) return cached.uri;
+        this.searchCache.delete(songName);
+
+        const uri = await this.searchSong(songName);
+        this.searchCache.set(songName, {
+            uri,
+            expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
+        });
+        if (this.searchCache.size > SEARCH_CACHE_MAX_ENTRIES) {
+            const oldest = this.searchCache.keys().next();
+            if (!oldest.done) this.searchCache.delete(oldest.value);
+        }
+        return uri;
     }
 
-    // Divide and Conquer
-    private async getSongsShort(
-        words: string[],
-        memo: Map<string, false | [string, string]> = new Map()
-    ): Promise<string[]> {
-        if (words.length === 1) {
-            const name = words[0].toLowerCase();
-
-            const songData = await (async () => {
-                if (memo.has(name)) {
-                    return memo.get(name);
-                }
-                const data = await this.searchSong(this.url(name), name);
-                memo.set(name, data);
-                return data;
-            })();
-
-            if (!songData) {
-                return [];
+    private async searchSong(songName: string): Promise<string | undefined> {
+        const canSearchPastLimit = songName.split(" ").length <= 2;
+        let url: string | null = this.url(songName);
+        while (url) {
+            const response = await fetch(url, { headers: this.headers });
+            if (!response.ok) {
+                throw new Error(`Could not search Spotify tracks (${response.status})`);
             }
 
-            return [songData[1]];
-        } else if (words.length >= 2) {
-            // split into half
-            const half = Math.floor(words.length / 2);
-            const firstHalf = words.slice(0, half);
-            const secondHalf = words.slice(half, words.length);
-            const firstHalfPromise = this.getSongsShort(firstHalf, memo);
-            const secondHalfPromise = this.getSongsShort(secondHalf, memo);
-
-            // if the results of of length words, then return
-            const firstHalfSongs = await firstHalfPromise;
-            const secondHalfSongs = await secondHalfPromise;
+            const { tracks } = await response.json();
+            const items: TrackObject[] = tracks.items;
+            const match = items.find(
+                (item) => item.name.toLowerCase() === songName
+            );
+            if (match) return match.uri;
 
             if (
-                firstHalfSongs.length + secondHalfSongs.length ===
-                words.length
+                !canSearchPastLimit &&
+                tracks.offset + items.length >= LONG_TITLE_RESULT_LIMIT
             ) {
-                return [...firstHalfSongs, ...secondHalfSongs];
+                return undefined;
             }
+            url = tracks.next;
         }
-
-        return this.getSongsLong(words, [], memo);
-    }
-
-    private async getSongsLong(
-        words: string[],
-        acc: string[],
-        memo: Map<string, false | [string, string]> = new Map()
-    ): Promise<string[]> {
-        if (words.length === 0) {
-            return acc;
-        }
-
-        for (let i = 0; i < words.length; i++) {
-            const slice = words.length - i;
-            const curName = words.slice(0, slice).join(" ").toLowerCase();
-
-            // Memoization to prevent duplicate requests
-            const songData = await (async () => {
-                if (memo.has(curName)) {
-                    return memo.get(curName);
-                }
-                const data = await this.searchSong(this.url(curName), curName);
-                memo.set(curName, data);
-                return data;
-            })();
-
-            if (!songData) {
-                continue;
-            } else {
-                const returned = await this.getSongsLong(
-                    words.slice(slice, words.length),
-                    [...acc, songData[1]],
-                    memo
-                );
-                if (returned.length !== 0) {
-                    return returned;
-                }
-            }
-        }
-
-        return [];
-    }
-
-    private async searchSong(
-        url: string,
-        songName: string
-    ): Promise<false | [string, string]> {
-        return fetch(url, { headers: this.headers })
-            .then((res) => res.json())
-            .then((data) => {
-                const results = data.tracks;
-
-                if (results.total === 0) {
-                    return false;
-                }
-
-                const items: TrackObject[] = results.items;
-
-                const match = items.find(
-                    (item) => item.name.toLowerCase() === songName
-                );
-
-                if (match) {
-                    return [match.name, match.uri];
-                }
-
-                // Search beyond the first 50 results only for one- or two-word titles.
-                if (
-                    results.next &&
-                    (songName.split(" ").length <= 2 ||
-                        results.offset + results.items.length < 50)
-                ) {
-                    return this.searchSong(results.next, songName);
-                }
-
-                return false;
-            });
+        return undefined;
     }
 
     private async makePlaylist(title: string) {
