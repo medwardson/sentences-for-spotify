@@ -13,7 +13,7 @@ class SpotifyClient {
     }
 
     private url(name: string) {
-        return `https://api.spotify.com/v1/search?q=${name}&type=track&limit=10`;
+        return `https://api.spotify.com/v1/search?q=${encodeURIComponent(name)}&type=track&limit=50`;
     }
 
     async startCreationAttempt(
@@ -164,9 +164,7 @@ class SpotifyClient {
                     return [match.name, match.uri];
                 }
 
-                // If there are more pages of results, search them, but only if it's
-                // a shorter song title. Longer song title would be unlikely to be hidden
-                // Search caps limit at 10, so longer titles still page through the first 50
+                // Search beyond the first 50 results only for one- or two-word titles.
                 if (
                     results.next &&
                     (songName.split(" ").length <= 2 ||
