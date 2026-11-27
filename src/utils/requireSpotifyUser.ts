@@ -11,6 +11,7 @@ export async function getSpotifyUser(
 ): Promise<SpotifyUser | null> {
     const spotifyRes = await fetch("https://api.spotify.com/v1/me", {
         headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
     });
     if (!spotifyRes.ok) return null;
     const user = await spotifyRes.json();

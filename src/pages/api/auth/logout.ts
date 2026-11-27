@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { clearCookie } from "../../../utils/auth";
+import { clearWebsiteSessionCookies } from "../../../utils/auth";
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== "POST") {
@@ -7,9 +7,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         return res.status(405).end(`Method ${req.method} Not Allowed`);
     }
 
-    res.setHeader("Set-Cookie", [
-        clearCookie("access_token", "/"),
-        clearCookie("refresh_token", "/api/auth"),
-    ]);
+    res.setHeader("Set-Cookie", clearWebsiteSessionCookies());
     res.status(204).end();
 }

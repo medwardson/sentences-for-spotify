@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { clearCookie, requestToken, tokenCookies } from "../../../utils/auth";
+import { clearCookie, cookie, deleteDataCookie, deleteDataPath, deleteDataStatePrefix, requestToken, tokenCookies } from "../../../utils/auth";
 
 export default async function handler(
     req: NextApiRequest,
@@ -7,10 +7,14 @@ export default async function handler(
 ) {
     const { code, state, error } = req.query;
     const expectedState = req.cookies.oauth_state;
+    const deleteData = expectedState?.startsWith(deleteDataStatePrefix);
+    const failurePath = deleteData ? `${deleteDataPath}?status=sign-in-failed` : "/";
     const cookies = [clearCookie("oauth_state", "/api/auth")];
+    res.setHeader("Cache-Control", "no-store");
+    if (deleteData) cookies.push(clearCookie(deleteDataCookie, deleteDataPath));
 
     const failure = error
-        ? `spotify error ${error}`
+        ? "Spotify authorization rejected"
         : typeof code !== "string"
           ? "missing code"
           : !expectedState
@@ -22,7 +26,7 @@ export default async function handler(
     if (failure || typeof code !== "string") {
         console.warn(`Login failed: ${failure}`);
         res.setHeader("Set-Cookie", cookies);
-        return res.redirect(302, "/");
+        return res.redirect(302, failurePath);
     }
 
     const token = await requestToken({
@@ -34,7 +38,12 @@ export default async function handler(
     if (!token) {
         console.warn("Login failed: token exchange rejected");
         res.setHeader("Set-Cookie", cookies);
-        return res.redirect(302, "/");
+        return res.redirect(302, failurePath);
+    }
+
+    if (deleteData) {
+        res.setHeader("Set-Cookie", [cookies[0], cookie(deleteDataCookie, token.access_token, deleteDataPath, Math.min(token.expires_in, 600))]);
+        return res.redirect(302, deleteDataPath);
     }
 
     res.setHeader("Set-Cookie", [...cookies, ...tokenCookies(token)]);

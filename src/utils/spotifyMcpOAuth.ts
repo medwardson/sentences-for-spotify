@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import type { DocumentReference, Firestore } from "firebase-admin/firestore";
 import { clearCookie, cookie, requestToken } from "@/utils/auth";
 import { getSpotifyUser } from "@/utils/requireSpotifyUser";
 
@@ -9,6 +10,7 @@ const accessLifetime = 60 * 60;
 const linkLifetime = 30 * 24 * 60 * 60;
 const nonceLength = 12;
 const authTagLength = 16;
+const grantDeletionBatchSize = 200;
 
 export function spotifyMcpConfig() {
     const origin = process.env.MCP_OAUTH_ORIGIN;
@@ -241,7 +243,7 @@ export async function exchangeSpotifyMcpToken(request: Request, config: Config) 
             (isCode && grant.get("challenge") !== hash(verifier))) return false;
         const linkId: string = grant.get("linkId");
         const link = await transaction.get(links.doc(linkId));
-        if (!link.exists || link.get("expiresAt").toMillis() <= Date.now() ||
+        if (!link.exists || link.get("revoked") || link.get("expiresAt").toMillis() <= Date.now() ||
             link.get("resource") !== config.resource) return false;
 
         transaction.delete(grantRef);
@@ -271,12 +273,39 @@ async function findSpotifyMcpLink(request: Request, config: Config) {
     if (!grant.exists || grant.get("expiresAt").toMillis() <= Date.now() ||
         grant.get("resource") !== config.resource) return null;
     const link = await links.doc(grant.get("linkId")).get();
-    return link.exists && link.get("expiresAt").toMillis() > Date.now()
+    return link.exists && !link.get("revoked") && link.get("expiresAt").toMillis() > Date.now()
         && link.get("resource") === config.resource ? { db, link } : null;
 }
 
 export async function hasSpotifyMcpLink(request: Request, config: Config) {
     return Boolean(await findSpotifyMcpLink(request, config));
+}
+
+async function deleteSpotifyMcpLink(db: Firestore, link: DocumentReference) {
+    // Stop new grants before deleting existing ones. Keep the link discoverable
+    // by account ID until deletion finishes so an interrupted request can retry.
+    await db.runTransaction(async (transaction) => {
+        const current = await transaction.get(link);
+        if (current.exists && !current.get("revoked")) transaction.update(link, { revoked: true });
+    });
+
+    const grants = db.collection("mcpSpotifyOAuth").where("linkId", "==", link.id).limit(grantDeletionBatchSize);
+    while (true) {
+        const snapshot = await grants.get();
+        const batch = db.batch();
+        for (const grant of snapshot.docs) batch.delete(grant.ref);
+        if (snapshot.size < grantDeletionBatchSize) {
+            await batch.delete(link).commit();
+            return;
+        }
+        await batch.commit();
+    }
+}
+
+export async function deleteSpotifyMcpLinksForUser(spotifyUserId: string) {
+    const { db, links } = await store();
+    const accountLinks = await links.where("spotifyUserId", "==", spotifyUserId).get();
+    for (const link of accountLinks.docs) await deleteSpotifyMcpLink(db, link.ref);
 }
 
 export async function disconnectSpotifyMcpLink(request: Request, config: Config) {
@@ -304,7 +333,7 @@ export async function getSpotifyMcpAccessToken(request: Request, config: Config)
             const rotated = encryptRefreshToken(config, link.id, tokens.refresh_token);
             await db.runTransaction(async (transaction) => {
                 const current = await transaction.get(link.ref);
-                if (current.get("spotifyRefreshToken") === encryptedToken) {
+                if (!current.get("revoked") && current.get("spotifyRefreshToken") === encryptedToken) {
                     transaction.update(link.ref, { spotifyRefreshToken: rotated });
                 }
             });
@@ -319,7 +348,7 @@ export async function getSpotifyMcpAccessToken(request: Request, config: Config)
     // Another playlist request may have rotated the Spotify token.
     const current = await link.ref.get();
     const currentToken: string | undefined = current.get("spotifyRefreshToken");
-    if (!currentToken || currentToken === encryptedToken ||
+    if (!currentToken || current.get("revoked") || currentToken === encryptedToken ||
         current.get("expiresAt").toMillis() <= Date.now()) return null;
     return refresh(currentToken);
 }
