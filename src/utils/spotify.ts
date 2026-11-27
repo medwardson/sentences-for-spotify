@@ -7,6 +7,12 @@ const LONG_TITLE_RESULT_LIMIT = 50;
 const SEARCH_CACHE_TTL_MS = 2 * 60 * 1000;
 const SEARCH_CACHE_MAX_ENTRIES = 512;
 
+export class SpotifyPlaylistSearchError extends Error {
+    constructor(cause: unknown) {
+        super("Could not finish searching Spotify for playlist tracks", { cause });
+    }
+}
+
 export class SpotifyPlaylistTracksError extends Error {
     constructor(readonly playlistUrl: string, cause: unknown) {
         super("Spotify playlist was created but adding tracks could not be confirmed", { cause });
@@ -45,16 +51,24 @@ class SpotifyClient {
         sentence: string,
         title: string,
         mode: Mode,
-        visibility?: "private"
+        options?: { visibility?: "private"; searchSignal?: AbortSignal }
     ): Promise<SearchResult> {
-        const songUris = await matchPlaylistTracks(sentence, mode, (name) =>
-            this.findTrack(name)
-        );
+        let songUris: string[];
+        try {
+            options?.searchSignal?.throwIfAborted();
+            songUris = await matchPlaylistTracks(sentence, mode, (name) =>
+                this.findTrack(name, options?.searchSignal)
+            );
+            options?.searchSignal?.throwIfAborted();
+        } catch (error) {
+            if (!options?.searchSignal) throw error;
+            throw new SpotifyPlaylistSearchError(error);
+        }
         if (songUris.length === 0) {
             return { status: "failure", title, sentence };
         }
 
-        const { playlistId, url } = await this.makePlaylist(title, visibility);
+        const { playlistId, url } = await this.makePlaylist(title, options?.visibility);
         try {
             await this.addSongs(playlistId, songUris);
         } catch (error) {
@@ -63,12 +77,12 @@ class SpotifyClient {
         return { status: "success", url, title, sentence };
     }
 
-    private async findTrack(songName: string): Promise<string | undefined> {
+    private async findTrack(songName: string, signal?: AbortSignal): Promise<string | undefined> {
         const cached = this.searchCache.get(songName);
         if (cached && cached.expiresAt > Date.now()) return cached.uri;
         this.searchCache.delete(songName);
 
-        const uri = await this.searchSong(songName);
+        const uri = await this.searchSong(songName, signal);
         this.searchCache.set(songName, {
             uri,
             expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
@@ -80,11 +94,11 @@ class SpotifyClient {
         return uri;
     }
 
-    private async searchSong(songName: string): Promise<string | undefined> {
+    private async searchSong(songName: string, signal?: AbortSignal): Promise<string | undefined> {
         const canSearchPastLimit = songName.split(" ").length <= 2;
         let url: string | null = this.url(songName);
         while (url) {
-            const response = await fetch(url, { headers: this.headers });
+            const response = await fetch(url, { headers: this.headers, signal });
             if (!response.ok) {
                 throw new Error(`Could not search Spotify tracks (${response.status})`);
             }

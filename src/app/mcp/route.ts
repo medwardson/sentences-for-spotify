@@ -2,13 +2,16 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
 import { Mode } from "@/types/query";
-import SpotifyClient, { SpotifyPlaylistTracksError } from "@/utils/spotify";
+import SpotifyClient, { SpotifyPlaylistSearchError, SpotifyPlaylistTracksError } from "@/utils/spotify";
 import {
     getSpotifyMcpAccessToken,
     hasSpotifyMcpLink,
     spotifyMcpConfig,
     spotifyMcpScope,
 } from "@/utils/spotifyMcpOAuth";
+
+export const maxDuration = 60;
+const playlistSearchDeadlineMs = 40_000;
 
 export async function POST(request: Request): Promise<Response> {
     const origin = request.headers.get("origin");
@@ -69,6 +72,7 @@ export async function POST(request: Request): Promise<Response> {
                 _meta: { securitySchemes },
             },
             async ({ sentence, title, mode }) => {
+                const searchSignal = AbortSignal.timeout(playlistSearchDeadlineMs);
                 let accessToken: string | null;
                 try {
                     accessToken = await getSpotifyMcpAccessToken(request, oauth);
@@ -82,7 +86,10 @@ export async function POST(request: Request): Promise<Response> {
 
                 try {
                     const spotify = new SpotifyClient(accessToken);
-                    const result = await spotify.createSentencePlaylist(sentence, title, mode, "private");
+                    const result = await spotify.createSentencePlaylist(sentence, title, mode, {
+                        visibility: "private",
+                        searchSignal,
+                    });
                     if (result.status === "failure") {
                         return {
                             content: [{ type: "text", text: "Spotify tracks could not spell the full sentence. No playlist was created." }],
@@ -94,6 +101,14 @@ export async function POST(request: Request): Promise<Response> {
                         structuredContent: { status: "created", title, sentence, url: result.url },
                     };
                 } catch (error) {
+                    if (error instanceof SpotifyPlaylistSearchError) {
+                        return {
+                            isError: true,
+                            content: [{ type: "text", text: searchSignal.aborted
+                                ? "Spotify track search timed out. No playlist was created. Try a shorter sentence."
+                                : "Could not search Spotify for tracks. No playlist was created." }],
+                        };
+                    }
                     if (error instanceof SpotifyPlaylistTracksError) {
                         return {
                             isError: true,
