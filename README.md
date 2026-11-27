@@ -25,6 +25,8 @@ Spotify for tracks whose titles spell the full sentence, saves them in order as
 a private playlist in that account, and returns the playlist link. If the full
 sentence cannot be matched, it creates no playlist.
 
+To remove the stored connection, ask the plugin to disconnect Spotify.
+
 Deploy the Next.js app on HTTPS with its existing Spotify and Firebase
 configuration and these additional server environment variables:
 

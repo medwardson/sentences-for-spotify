@@ -4,6 +4,7 @@ import { z } from "zod";
 import { Mode } from "@/types/query";
 import SpotifyClient, { SpotifyPlaylistSearchError, SpotifyPlaylistTracksError } from "@/utils/spotify";
 import {
+    disconnectSpotifyMcpLink,
     getSpotifyMcpAccessToken,
     hasSpotifyMcpLink,
     spotifyMcpConfig,
@@ -42,7 +43,7 @@ export async function POST(request: Request): Promise<Response> {
             {
                 title: "Connect Spotify",
                 description: "Connect your Spotify account or check whether it is connected.",
-                annotations: { readOnlyHint: true, openWorldHint: false },
+                annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
                 _meta: { securitySchemes },
             },
             async () => {
@@ -50,6 +51,31 @@ export async function POST(request: Request): Promise<Response> {
                     return { content: [{ type: "text", text: "Spotify is connected." }] };
                 }
                 return spotifySignIn();
+            }
+        );
+
+        server.registerTool(
+            "disconnect_spotify",
+            {
+                title: "Disconnect your Spotify account",
+                description: "Disconnect the Spotify account linked to this plugin session and delete the stored connection. Use only when the user explicitly asks to disconnect Spotify. Playlists in Spotify are unaffected.",
+                annotations: {
+                    readOnlyHint: false,
+                    destructiveHint: true,
+                    idempotentHint: true,
+                    openWorldHint: false,
+                },
+                _meta: { securitySchemes },
+            },
+            async () => {
+                try {
+                    const disconnected = await disconnectSpotifyMcpLink(request, oauth);
+                    return { content: [{ type: "text", text: disconnected
+                        ? "Spotify is disconnected. The plugin’s stored connection was deleted."
+                        : "There is no active Spotify connection to disconnect." }] };
+                } catch {
+                    return { isError: true, content: [{ type: "text", text: "Could not confirm that Spotify was disconnected." }] };
+                }
             }
         );
 

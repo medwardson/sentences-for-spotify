@@ -279,6 +279,16 @@ export async function hasSpotifyMcpLink(request: Request, config: Config) {
     return Boolean(await findSpotifyMcpLink(request, config));
 }
 
+export async function disconnectSpotifyMcpLink(request: Request, config: Config) {
+    const match = await findSpotifyMcpLink(request, config);
+    if (!match) return false;
+
+    // Every access or refresh grant requires this link. Deleting it also removes
+    // the Spotify account ID and encrypted refresh token stored for the connection.
+    await match.link.ref.delete();
+    return true;
+}
+
 export async function getSpotifyMcpAccessToken(request: Request, config: Config) {
     const match = await findSpotifyMcpLink(request, config);
     if (!match) return null;
