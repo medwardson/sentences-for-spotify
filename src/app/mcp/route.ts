@@ -2,7 +2,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
 import { Mode } from "@/types/query";
-import { matchPlaylistTracks } from "@/utils/playlistMatcher";
 import SpotifyClient, { SpotifyPlaylistTracksError } from "@/utils/spotify";
 import {
     getSpotifyMcpAccessToken,
@@ -10,14 +9,6 @@ import {
     spotifyMcpConfig,
     spotifyMcpScope,
 } from "@/utils/spotifyMcpOAuth";
-
-const mockCatalog = new Map([
-    ["we", "We"],
-    ["glow", "Glow"],
-    ["again", "Again"],
-    ["we glow", "We Glow"],
-    ["glow again", "Glow Again"],
-]);
 
 export async function POST(request: Request): Promise<Response> {
     const origin = request.headers.get("origin");
@@ -29,56 +20,6 @@ export async function POST(request: Request): Promise<Response> {
         name: "sentences-for-spotify-preview",
         version: "0.1.0",
     });
-    server.registerTool(
-        "preview_sentence_playlist",
-        {
-            title: "Preview a sentence playlist",
-            description:
-                "Preview ordered track titles that spell the user's exact sentence using a small fictional catalog. The demo sentence is 'We glow again'. No Spotify account is needed and no playlist is created.",
-            inputSchema: {
-                sentence: z.string().trim().min(1).max(160),
-                title: z.string().trim().min(1).max(100),
-                mode: z.enum(Mode)
-                    .default(Mode.SHORT)
-                    .describe("Short prefers one title per word. Long tries longer titles first."),
-            },
-            outputSchema: {
-                status: z.enum(["preview", "no_match"]),
-                title: z.string(),
-                sentence: z.string(),
-                mode: z.enum(Mode),
-                trackTitles: z.array(z.string()),
-            },
-            annotations: {
-                readOnlyHint: true,
-                openWorldHint: false,
-            },
-            _meta: { securitySchemes: [{ type: "noauth" }] },
-        },
-        async ({ sentence, title, mode }) => {
-            const trackTitles = await matchPlaylistTracks(sentence, mode, async (name) =>
-                mockCatalog.get(name)
-            );
-            const matched = trackTitles.length > 0;
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: matched
-                            ? `Mock preview for "${title}": ${trackTitles.join(" → ")}. No playlist was created.`
-                            : 'The mock catalog could not spell this sentence. Try "We glow again".',
-                    },
-                ],
-                structuredContent: {
-                    status: matched ? "preview" : "no_match",
-                    title,
-                    sentence,
-                    mode,
-                    trackTitles,
-                },
-            };
-        }
-    );
 
     const oauth = spotifyMcpConfig();
     if (oauth) {

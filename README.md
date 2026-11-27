@@ -16,27 +16,7 @@ Steps:
 3. Choose a playlist title.
 4. If the titles are found, you will get a link to the playlist.
 
-## MCP prototype
-
-Run `npm install` and `npm run dev`. In MCP Inspector (`npx @modelcontextprotocol/inspector`),
-choose **Streamable HTTP** and connect to `http://localhost:8000/mcp`.
-Call `preview_sentence_playlist` with:
-
-```json
-{"sentence":"We glow again","title":"After Hours","mode":"long"}
-```
-
-The long-mode preview returns **We Glow → Again**. With `"mode":"short"`, it
-returns **We → Glow → Again**. The preview uses a small fictional catalog and
-makes no Spotify API calls or playlist writes.
-
-To test in ChatGPT, make the endpoint reachable via HTTPS or Secure MCP Tunnel.
-In **ChatGPT Plugins**, choose **Add custom MCP server**, connect the endpoint
-with authentication set to **No authentication**, and select **Create as a plugin**.
-Try asking “Preview a playlist titled After Hours that spells ‘We glow again’
-using long titles.” Custom MCP access depends on your account and workspace settings.
-
-### Spotify account linking and playlist creation beta
+## Spotify account linking and playlist creation beta
 
 The beta exposes `spotify_connection_status` to connect a Spotify account from
 ChatGPT and check its connection. Each user's authorization is tied to the
