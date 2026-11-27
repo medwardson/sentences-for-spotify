@@ -11,7 +11,10 @@ export const cookie = (
 export const clearCookie = (name: string, path: string) =>
     cookie(name, "", path, 0);
 
-export const requestToken = async (params: Record<string, string>) => {
+export const requestToken = async (
+    params: Record<string, string>,
+    throwOnUnexpectedError = false
+) => {
     const response = await fetch("https://accounts.spotify.com/api/token", {
         method: "POST",
         headers: {
@@ -22,7 +25,15 @@ export const requestToken = async (params: Record<string, string>) => {
         },
         body: new URLSearchParams(params),
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+        if (throwOnUnexpectedError) {
+            const body = await response.json().catch(() => null);
+            if (body?.error !== "invalid_grant") {
+                throw new Error(`Spotify token request failed (${response.status})`);
+            }
+        }
+        return null;
+    }
 
     return (await response.json()) as {
         access_token: string;

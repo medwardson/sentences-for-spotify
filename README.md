@@ -36,11 +36,14 @@ with authentication set to **No authentication**, and select **Create as a plugi
 Try asking “Preview a playlist titled After Hours that spells ‘We glow again’
 using long titles.” Custom MCP access depends on your account and workspace settings.
 
-### Spotify account linking beta
+### Spotify account linking and playlist creation beta
 
 The beta exposes `spotify_connection_status` to connect a Spotify account from
 ChatGPT and check its connection. Each user's authorization is tied to the
-Spotify account they approve during sign-in. This milestone covers account linking.
+Spotify account they approve during sign-in. `create_sentence_playlist` searches
+Spotify for tracks whose titles spell the full sentence, saves them in order as
+a private playlist in that account, and returns the playlist link. If the full
+sentence cannot be matched, it creates no playlist.
 
 Deploy the Next.js app on HTTPS with its existing Spotify and Firebase
 configuration and these additional server environment variables:
@@ -63,7 +66,9 @@ Set Firestore TTL policies on the `expiresAt` field in the
 grants and links. The server checks expiration before accepting a grant.
 
 In ChatGPT, ask the beta plugin to connect Spotify. After approving on Spotify,
-start a new chat and ask the plugin whether Spotify is connected. To test account
+start a new chat and ask the plugin whether Spotify is connected. Then ask it to
+create a Spotify playlist titled “After Hours” that spells “We glow again” and
+open the returned link in Spotify. To test account
 isolation, repeat the flow from a separate ChatGPT account with a different
 Spotify account.
 

@@ -7,6 +7,12 @@ const LONG_TITLE_RESULT_LIMIT = 50;
 const SEARCH_CACHE_TTL_MS = 2 * 60 * 1000;
 const SEARCH_CACHE_MAX_ENTRIES = 512;
 
+export class SpotifyPlaylistTracksError extends Error {
+    constructor(readonly playlistUrl: string, cause: unknown) {
+        super("Spotify playlist was created but adding tracks could not be confirmed", { cause });
+    }
+}
+
 class SpotifyClient {
     private headers: HeadersInit;
     private readonly searchCache = new Map<string, {
@@ -30,6 +36,17 @@ class SpotifyClient {
         title: string,
         mode: Mode
     ): Promise<SearchResult> {
+        const result = await this.createSentencePlaylist(sentence, title, mode);
+        if (result.status === "success") addPlaylist(this.accessToken, result);
+        return result;
+    }
+
+    async createSentencePlaylist(
+        sentence: string,
+        title: string,
+        mode: Mode,
+        visibility?: "private"
+    ): Promise<SearchResult> {
         const songUris = await matchPlaylistTracks(sentence, mode, (name) =>
             this.findTrack(name)
         );
@@ -37,19 +54,13 @@ class SpotifyClient {
             return { status: "failure", title, sentence };
         }
 
-        const { playlistId, url } = await this.makePlaylist(title);
-        await this.addSongs(playlistId, songUris);
-
-        const result: SearchResult = {
-            status: "success",
-            url,
-            title,
-            sentence,
-        };
-
-        addPlaylist(this.accessToken, result);
-
-        return result;
+        const { playlistId, url } = await this.makePlaylist(title, visibility);
+        try {
+            await this.addSongs(playlistId, songUris);
+        } catch (error) {
+            throw new SpotifyPlaylistTracksError(url, error);
+        }
+        return { status: "success", url, title, sentence };
     }
 
     private async findTrack(songName: string): Promise<string | undefined> {
@@ -96,19 +107,21 @@ class SpotifyClient {
         return undefined;
     }
 
-    private async makePlaylist(title: string) {
-        return fetch("https://api.spotify.com/v1/me/playlists", {
+    private async makePlaylist(title: string, visibility?: "private") {
+        const response = await fetch("https://api.spotify.com/v1/me/playlists", {
             method: "POST",
             headers: this.headers,
             body: JSON.stringify({
                 name: title,
                 description: "Add a description for your playlist.",
+                public: visibility === "private" ? false : undefined,
             }),
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                return { playlistId: data.id, url: data.external_urls.spotify };
-            });
+        });
+        if (!response.ok) {
+            throw new Error(`Could not create Spotify playlist (${response.status})`);
+        }
+        const data = await response.json();
+        return { playlistId: data.id, url: data.external_urls.spotify };
     }
 
     private async addSongs(playlistId: string, songUris: string[]) {

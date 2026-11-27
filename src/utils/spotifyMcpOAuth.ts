@@ -1,4 +1,4 @@
-import { createCipheriv, createHash, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { clearCookie, cookie, requestToken } from "@/utils/auth";
 import { getSpotifyUser } from "@/utils/requireSpotifyUser";
 
@@ -7,6 +7,8 @@ const stateCookie = "mcp_spotify_oauth_state";
 const oauthPath = "/api/mcp/oauth";
 const accessLifetime = 60 * 60;
 const linkLifetime = 30 * 24 * 60 * 60;
+const nonceLength = 12;
+const authTagLength = 16;
 
 export function spotifyMcpConfig() {
     const origin = process.env.MCP_OAUTH_ORIGIN;
@@ -36,6 +38,23 @@ type Config = NonNullable<ReturnType<typeof spotifyMcpConfig>>;
 type PendingLink = { expiresAt: Date; challenge: string; clientState: string; resource: string };
 type Code = { expiresAt: Date; challenge: string; linkId: string };
 type Grant = { expiresAt: Date; linkId: string; resource: string };
+
+function encryptRefreshToken(config: Config, linkId: string, token: string) {
+    const nonce = randomBytes(nonceLength);
+    const cipher = createCipheriv("aes-256-gcm", config.key, nonce);
+    cipher.setAAD(Buffer.from(linkId));
+    const encrypted = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
+    return Buffer.concat([nonce, cipher.getAuthTag(), encrypted]).toString("base64url");
+}
+
+function decryptRefreshToken(config: Config, linkId: string, value: string) {
+    const encrypted = Buffer.from(value, "base64url");
+    const dataOffset = nonceLength + authTagLength;
+    const decipher = createDecipheriv("aes-256-gcm", config.key, encrypted.subarray(0, nonceLength));
+    decipher.setAAD(Buffer.from(linkId));
+    decipher.setAuthTag(encrypted.subarray(nonceLength, dataOffset));
+    return Buffer.concat([decipher.update(encrypted.subarray(dataOffset)), decipher.final()]).toString("utf8");
+}
 
 const randomToken = () => randomBytes(32).toString("base64url");
 const hash = (value: string) => createHash("sha256").update(value).digest("base64url");
@@ -164,17 +183,13 @@ export async function finishSpotifyMcp(request: Request, config: Config) {
             return redirect(destination, clear);
         }
 
-        const nonce = randomBytes(12);
-        const cipher = createCipheriv("aes-256-gcm", config.key, nonce);
         const link = links.doc();
-        cipher.setAAD(Buffer.from(link.id));
-        const encrypted = Buffer.concat([cipher.update(tokens.refresh_token, "utf8"), cipher.final()]);
         const code = randomToken();
         await db.batch()
             .create(link, {
                 spotifyUserId: user.id,
                 resource: config.resource,
-                spotifyRefreshToken: Buffer.concat([nonce, cipher.getAuthTag(), encrypted]).toString("base64url"),
+                spotifyRefreshToken: encryptRefreshToken(config, link.id, tokens.refresh_token),
                 expiresAt: expires(linkLifetime),
             })
             .create(secret("code", code), {
@@ -247,15 +262,54 @@ export async function exchangeSpotifyMcpToken(request: Request, config: Config) 
     }) : oauthError("invalid_grant");
 }
 
-export async function hasSpotifyMcpLink(request: Request, config: Config) {
+async function findSpotifyMcpLink(request: Request, config: Config) {
     const token = request.headers.get("authorization")?.match(/^Bearer ([A-Za-z0-9_-]{43})$/i)?.[1];
-    if (!token) return false;
+    if (!token) return null;
 
-    const { links, secret } = await store();
+    const { db, links, secret } = await store();
     const grant = await secret("access", token).get();
     if (!grant.exists || grant.get("expiresAt").toMillis() <= Date.now() ||
-        grant.get("resource") !== config.resource) return false;
+        grant.get("resource") !== config.resource) return null;
     const link = await links.doc(grant.get("linkId")).get();
     return link.exists && link.get("expiresAt").toMillis() > Date.now()
-        && link.get("resource") === config.resource;
+        && link.get("resource") === config.resource ? { db, link } : null;
+}
+
+export async function hasSpotifyMcpLink(request: Request, config: Config) {
+    return Boolean(await findSpotifyMcpLink(request, config));
+}
+
+export async function getSpotifyMcpAccessToken(request: Request, config: Config) {
+    const match = await findSpotifyMcpLink(request, config);
+    if (!match) return null;
+    const { db, link } = match;
+
+    const refresh = async (encryptedToken: string) => {
+        const refreshToken = decryptRefreshToken(config, link.id, encryptedToken);
+        const tokens = await requestToken({
+            grant_type: "refresh_token",
+            refresh_token: refreshToken,
+        }, true);
+        if (tokens?.refresh_token && tokens.refresh_token !== refreshToken) {
+            const rotated = encryptRefreshToken(config, link.id, tokens.refresh_token);
+            await db.runTransaction(async (transaction) => {
+                const current = await transaction.get(link.ref);
+                if (current.get("spotifyRefreshToken") === encryptedToken) {
+                    transaction.update(link.ref, { spotifyRefreshToken: rotated });
+                }
+            });
+        }
+        return tokens?.access_token ?? null;
+    };
+
+    const encryptedToken: string = link.get("spotifyRefreshToken");
+    const token = await refresh(encryptedToken);
+    if (token) return token;
+
+    // Another playlist request may have rotated the Spotify token.
+    const current = await link.ref.get();
+    const currentToken: string | undefined = current.get("spotifyRefreshToken");
+    if (!currentToken || currentToken === encryptedToken ||
+        current.get("expiresAt").toMillis() <= Date.now()) return null;
+    return refresh(currentToken);
 }
