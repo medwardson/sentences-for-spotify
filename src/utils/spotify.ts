@@ -114,7 +114,7 @@ class SpotifyClient {
     private async addSongs(playlistId: string, songUris: string[]) {
         // Spotify takes at most 100 items per request; sequential keeps the order
         for (let i = 0; i < songUris.length; i += 100) {
-            await fetch(
+            const response = await fetch(
                 `https://api.spotify.com/v1/playlists/${playlistId}/items`,
                 {
                     method: "POST",
@@ -124,6 +124,9 @@ class SpotifyClient {
                     }),
                 }
             );
+            if (!response.ok) {
+                throw new Error(`Could not add tracks to Spotify playlist (${response.status})`);
+            }
         }
     }
 }
