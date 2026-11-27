@@ -8,6 +8,7 @@ const LONG_TITLE_RESULT_LIMIT = 50;
 const SEARCH_CACHE_TTL_MS = 2 * 60 * 1000;
 const SEARCH_CACHE_MAX_ENTRIES = 512;
 const MAX_TARGETED_GAP_LOOKUPS = 6;
+const INITIAL_SINGLE_WORD_PAGE_LIMIT = 2;
 
 type SearchPhaseMetrics = {
     startedAt?: number;
@@ -136,7 +137,7 @@ class SpotifyClient {
         // Keep the existing search result if an optional targeted lookup fails.
         await Promise.allSettled(missingWords.map(async (word) => {
             phase.lookups++;
-            const track = await this.searchSong(word, signal, true, phase, `track:${word}`);
+            const track = await this.searchSong(word, signal, 1, phase, `track:${word}`);
             if (track) matchedTracks.set(word, track);
         }));
         phase.elapsedMs = Date.now() - start;
@@ -147,8 +148,11 @@ class SpotifyClient {
         if (cached && cached.expiresAt > Date.now()) return cached.uri;
         this.searchCache.delete(songName);
 
-        const uri = await this.searchSong(songName, signal, firstPageOnly, phase);
-        // A miss on the first page is not a miss for the full search.
+        const pageLimit = firstPageOnly
+            ? (songName.includes(" ") ? 1 : INITIAL_SINGLE_WORD_PAGE_LIMIT)
+            : Infinity;
+        const uri = await this.searchSong(songName, signal, pageLimit, phase);
+        // A miss in the initial pass can still match in the full search.
         if (firstPageOnly && !uri) return undefined;
         this.searchCache.set(songName, {
             uri,
@@ -161,10 +165,10 @@ class SpotifyClient {
         return uri;
     }
 
-    private async searchSong(songName: string, signal: AbortSignal | undefined, firstPageOnly: boolean | undefined, phase: SearchPhaseMetrics, query = songName): Promise<string | undefined> {
+    private async searchSong(songName: string, signal: AbortSignal | undefined, pageLimit: number, phase: SearchPhaseMetrics, query = songName): Promise<string | undefined> {
         const canSearchPastLimit = songName.split(" ").length <= 2;
         let url: string | null = this.url(query);
-        while (url) {
+        for (let page = 0; url && page < pageLimit; page++) {
             signal?.throwIfAborted();
             phase.requests++;
             const response = await fetch(url, { headers: this.headers, signal });
@@ -178,7 +182,6 @@ class SpotifyClient {
                 (item) => normalizeTitle(item.name) === songName
             );
             if (match) return match.uri;
-            if (firstPageOnly) return undefined;
 
             if (
                 !canSearchPastLimit &&
