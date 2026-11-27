@@ -7,6 +7,7 @@ import { normalizeTitle } from "@/utils/titleNormalization";
 const LONG_TITLE_RESULT_LIMIT = 50;
 const SEARCH_CACHE_TTL_MS = 2 * 60 * 1000;
 const SEARCH_CACHE_MAX_ENTRIES = 512;
+const MAX_TARGETED_GAP_LOOKUPS = 6;
 
 type SearchPhaseMetrics = {
     startedAt?: number;
@@ -68,7 +69,8 @@ class SpotifyClient {
         const startedAt = Date.now();
         const firstPage = searchPhaseMetrics();
         const fallback = searchPhaseMetrics();
-        const matchedTitles = new Set<string>();
+        const targeted = searchPhaseMetrics();
+        const matchedTracks = new Map<string, string>();
         let outcome = "error";
         let songUris: string[];
         try {
@@ -79,18 +81,25 @@ class SpotifyClient {
                 phase.lookups++;
                 try {
                     const track = await this.findTrack(name, options?.searchSignal, firstPageOnly, phase);
-                    if (track) matchedTitles.add(name);
+                    if (track) matchedTracks.set(name, track);
                     return track;
                 } finally {
                     phase.elapsedMs = Date.now() - phase.startedAt;
                 }
             });
             options?.searchSignal?.throwIfAborted();
+            if (mode === Mode.SHORT && songUris.length === 0) {
+                const gaps = findUnmatchedSpans(sentence, new Set(matchedTracks.keys()));
+                await this.checkGapTitles(gaps, matchedTracks, targeted, options?.searchSignal);
+                options?.searchSignal?.throwIfAborted();
+                // Reuse the discovered tracks to check for a full match without more Spotify calls.
+                songUris = await matchPlaylistTracks(sentence, mode, async (name) => matchedTracks.get(name));
+            }
             outcome = songUris.length > 0 ? "matched" : "no_match";
         } catch (error) {
             if (!options?.searchSignal) throw error;
             if (options.searchSignal.aborted) outcome = "aborted";
-            throw new SpotifyPlaylistSearchError(error, findUnmatchedSpans(sentence, matchedTitles));
+            throw new SpotifyPlaylistSearchError(error, findUnmatchedSpans(sentence, new Set(matchedTracks.keys())));
         } finally {
             if (options?.searchSignal) {
                 const summarize = ({ elapsedMs, lookups, requests }: SearchPhaseMetrics) =>
@@ -98,11 +107,12 @@ class SpotifyClient {
                 console.info("spotify_playlist_search", JSON.stringify({
                     mode, outcome, elapsedMs: Date.now() - startedAt,
                     firstPage: summarize(firstPage), fallback: summarize(fallback),
+                    targeted: summarize(targeted),
                 }));
             }
         }
         if (songUris.length === 0) {
-            return { status: "failure", title, sentence, unmatchedSpans: findUnmatchedSpans(sentence, matchedTitles) };
+            return { status: "failure", title, sentence, unmatchedSpans: findUnmatchedSpans(sentence, new Set(matchedTracks.keys())) };
         }
 
         const { playlistId, url } = await this.makePlaylist(title, options?.visibility);
@@ -112,6 +122,24 @@ class SpotifyClient {
             throw new SpotifyPlaylistTracksError(url, error);
         }
         return { status: "success", url, title, sentence };
+    }
+
+    private async checkGapTitles(
+        gaps: UnmatchedSpan[], matchedTracks: Map<string, string>, phase: SearchPhaseMetrics, signal?: AbortSignal
+    ): Promise<void> {
+        const missingWords = [...new Set(gaps.flatMap(({ text }) => text.split(" ")))]
+            .filter((word) => !matchedTracks.has(word))
+            .slice(0, MAX_TARGETED_GAP_LOOKUPS);
+        if (missingWords.length === 0) return;
+
+        const start = Date.now();
+        // Keep the existing search result if an optional targeted lookup fails.
+        await Promise.allSettled(missingWords.map(async (word) => {
+            phase.lookups++;
+            const track = await this.searchSong(word, signal, true, phase, `track:${word}`);
+            if (track) matchedTracks.set(word, track);
+        }));
+        phase.elapsedMs = Date.now() - start;
     }
 
     private async findTrack(songName: string, signal: AbortSignal | undefined, firstPageOnly: boolean | undefined, phase: SearchPhaseMetrics): Promise<string | undefined> {
@@ -133,9 +161,9 @@ class SpotifyClient {
         return uri;
     }
 
-    private async searchSong(songName: string, signal: AbortSignal | undefined, firstPageOnly: boolean | undefined, phase: SearchPhaseMetrics): Promise<string | undefined> {
+    private async searchSong(songName: string, signal: AbortSignal | undefined, firstPageOnly: boolean | undefined, phase: SearchPhaseMetrics, query = songName): Promise<string | undefined> {
         const canSearchPastLimit = songName.split(" ").length <= 2;
-        let url: string | null = this.url(songName);
+        let url: string | null = this.url(query);
         while (url) {
             signal?.throwIfAborted();
             phase.requests++;
