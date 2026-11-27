@@ -9,9 +9,8 @@ Steps:
 
 1. Login through homepage using your Spotify Account
 2. Enter the sentence you wish to transform.
-    - It is suggested that you try to avoid punctuation. Although there is
-      some preventative measures in place, best results will come with no
-      punctuation.
+    - Punctuation, capitalization, and line breaks are normalized during
+      matching. The words still need to appear in song titles in the same order.
     - Consider that not all words exist in a song title.
 3. Choose a playlist title.
 4. If the titles are found, you will get a link to the playlist.

@@ -88,7 +88,7 @@ export async function POST(request: Request): Promise<Response> {
                 inputSchema: {
                     sentence: z.string().trim().min(1).max(160).describe("The sentence to spell with track titles."),
                     title: z.string().trim().min(1).max(100).describe("The name to save the playlist under in Spotify."),
-                    mode: z.enum(Mode).default(Mode.SHORT).describe("Short prefers one title per word. Long tries longer titles first."),
+                    mode: z.enum(Mode).default(Mode.SHORT).describe("Short prefers one title per word and checks titles of up to three words. Long tries longer titles first."),
                 },
                 annotations: {
                     readOnlyHint: false,
@@ -118,9 +118,12 @@ export async function POST(request: Request): Promise<Response> {
                         searchSignal,
                     });
                     if (result.status === "failure") {
+                        const unmatchedSpans = result.unmatchedSpans ?? [];
+                        const gaps = unmatchedSpans.map(({ text }) => JSON.stringify(text)).join(", ");
                         return {
-                            content: [{ type: "text", text: "Spotify tracks could not spell the full sentence. No playlist was created." }],
-                            structuredContent: { status: "no_match", title, sentence },
+                            content: [{ type: "text", text: "Spotify tracks could not spell the full sentence within the search limits. No playlist was created." +
+                                (gaps ? ` The best match left these parts uncovered: ${gaps}. Offer the user edits for those parts before retrying.` : "") }],
+                            structuredContent: { status: "no_match", title, sentence, unmatchedSpans },
                         };
                     }
                     return {
@@ -129,11 +132,18 @@ export async function POST(request: Request): Promise<Response> {
                     };
                 } catch (error) {
                     if (error instanceof SpotifyPlaylistSearchError) {
+                        if (searchSignal.aborted) {
+                            const unmatchedSpans = error.unmatchedSpans;
+                            const gaps = unmatchedSpans.map(({ text }) => JSON.stringify(text)).join(", ");
+                            return {
+                                content: [{ type: "text", text: "Spotify track search timed out. No playlist was created." +
+                                    (gaps ? ` Still unresolved when time ran out: ${gaps}. These parts may match in a longer search.` : " Try again or use a shorter sentence.") }],
+                                structuredContent: { status: "timeout", title, sentence, unmatchedSpans },
+                            };
+                        }
                         return {
                             isError: true,
-                            content: [{ type: "text", text: searchSignal.aborted
-                                ? "Spotify track search timed out. No playlist was created. Try a shorter sentence."
-                                : "Could not search Spotify for tracks. No playlist was created." }],
+                            content: [{ type: "text", text: "Could not search Spotify for tracks. No playlist was created." }],
                         };
                     }
                     if (error instanceof SpotifyPlaylistTracksError) {
