@@ -21,9 +21,11 @@ Steps:
 The beta exposes `spotify_connection_status` to connect a Spotify account from
 ChatGPT and check its connection. Each user's authorization is tied to the
 Spotify account they approve during sign-in. `create_sentence_playlist` searches
-Spotify for tracks whose titles spell the full sentence, saves them in order as
-a private playlist in that account, and returns the playlist link. If the full
-sentence cannot be matched, it creates no playlist.
+Spotify for tracks whose titles spell the full sentence, saves them in order,
+and returns the playlist link. If the full sentence cannot be matched, it
+creates no playlist. Created playlists stay off your Spotify profile and out of
+search. Anyone with the link can open the playlist until you choose **Make private**
+in Spotify.
 
 To remove the stored connection, ask the plugin to disconnect Spotify.
 

@@ -51,7 +51,7 @@ class SpotifyClient {
         sentence: string,
         title: string,
         mode: Mode,
-        options?: { visibility?: "private"; searchSignal?: AbortSignal }
+        options?: { hideFromProfile?: boolean; searchSignal?: AbortSignal }
     ): Promise<SearchResult> {
         let songUris: string[];
         try {
@@ -68,7 +68,7 @@ class SpotifyClient {
             return { status: "failure", title, sentence };
         }
 
-        const { playlistId, url } = await this.makePlaylist(title, options?.visibility);
+        const { playlistId, url } = await this.makePlaylist(title, options?.hideFromProfile);
         try {
             await this.addSongs(playlistId, songUris);
         } catch (error) {
@@ -121,14 +121,14 @@ class SpotifyClient {
         return undefined;
     }
 
-    private async makePlaylist(title: string, visibility?: "private") {
+    private async makePlaylist(title: string, hideFromProfile?: boolean) {
         const response = await fetch("https://api.spotify.com/v1/me/playlists", {
             method: "POST",
             headers: this.headers,
             body: JSON.stringify({
                 name: title,
                 description: "Add a description for your playlist.",
-                public: visibility === "private" ? false : undefined,
+                public: hideFromProfile ? false : undefined,
             }),
         });
         if (!response.ok) {

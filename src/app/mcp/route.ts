@@ -13,6 +13,7 @@ import {
 
 export const maxDuration = 60;
 const playlistSearchDeadlineMs = 40_000;
+const playlistVisibilityNote = "Anyone with the link can open it. To restrict access, choose Make private in Spotify.";
 
 export async function POST(request: Request): Promise<Response> {
     const origin = request.headers.get("origin");
@@ -82,8 +83,8 @@ export async function POST(request: Request): Promise<Response> {
         server.registerTool(
             "create_sentence_playlist",
             {
-                title: "Create a private Spotify playlist",
-                description: "Find Spotify tracks whose titles spell the requested sentence in order and save them as a private playlist in the linked Spotify account. Use when the user asks to create or save a Spotify playlist. Each successful call creates a new playlist.",
+                title: "Create a Spotify playlist",
+                description: "Find Spotify tracks whose titles spell the requested sentence in order and save them as a new playlist in the linked account. The playlist stays off the owner's Spotify profile and out of search, and anyone with the link can open it. When the user asks for a private playlist, explain before creating it that they can select Make private in Spotify afterward. Use only when the user asks to create or save a playlist.",
                 inputSchema: {
                     sentence: z.string().trim().min(1).max(160).describe("The sentence to spell with track titles."),
                     title: z.string().trim().min(1).max(100).describe("The name to save the playlist under in Spotify."),
@@ -113,7 +114,7 @@ export async function POST(request: Request): Promise<Response> {
                 try {
                     const spotify = new SpotifyClient(accessToken);
                     const result = await spotify.createSentencePlaylist(sentence, title, mode, {
-                        visibility: "private",
+                        hideFromProfile: true,
                         searchSignal,
                     });
                     if (result.status === "failure") {
@@ -123,8 +124,8 @@ export async function POST(request: Request): Promise<Response> {
                         };
                     }
                     return {
-                        content: [{ type: "text", text: `Created the private Spotify playlist ${title}: ${result.url}` }],
-                        structuredContent: { status: "created", title, sentence, url: result.url },
+                        content: [{ type: "text", text: `Created the Spotify playlist ${title}: ${result.url}. ${playlistVisibilityNote}` }],
+                        structuredContent: { status: "created", title, sentence, url: result.url, visibility: "link_accessible" },
                     };
                 } catch (error) {
                     if (error instanceof SpotifyPlaylistSearchError) {
@@ -138,7 +139,7 @@ export async function POST(request: Request): Promise<Response> {
                     if (error instanceof SpotifyPlaylistTracksError) {
                         return {
                             isError: true,
-                            content: [{ type: "text", text: `Spotify created the playlist, but adding the tracks could not be confirmed. Check the existing playlist before trying again: ${error.playlistUrl}` }],
+                            content: [{ type: "text", text: `Spotify created the playlist, but adding the tracks could not be confirmed. Check the existing playlist before trying again: ${error.playlistUrl}. ${playlistVisibilityNote}` }],
                         };
                     }
                     return {
