@@ -1,4 +1,5 @@
 import { Mode } from "@/types/query";
+import type { UnmatchedSpan } from "@/types/spotify";
 import { normalizeTitle } from "@/utils/titleNormalization";
 
 type FindTrack = (normalizedTitle: string, firstPageOnly?: boolean) => Promise<string | undefined>;
@@ -7,12 +8,46 @@ type Lookup = (title: string) => Promise<string | undefined>;
 const SHORT_SEARCH_CONCURRENCY = 6;
 const SHORT_SEARCH_MAX_WORDS = 3;
 
+function sentenceWords(sentence: string): string[] {
+    return normalizeTitle(sentence).split(" ").filter(Boolean);
+}
+
+/** Report the gaps in the best non-overlapping coverage from titles found so far. */
+export function findUnmatchedSpans(sentence: string, matchedTitles: ReadonlySet<string>): UnmatchedSpan[] {
+    const words = sentenceWords(sentence);
+    let maxWords = 0;
+    for (const title of matchedTitles) maxWords = Math.max(maxWords, title.split(" ").length);
+    const coverage = new Array<number>(words.length + 1).fill(0);
+    const matchedEnd = new Array<number>(words.length).fill(0);
+    for (let start = words.length - 1; start >= 0; start--) {
+        coverage[start] = coverage[start + 1];
+        for (let end = start + 1; end <= Math.min(words.length, start + maxWords); end++) {
+            const count = end - start + coverage[end];
+            if (count < coverage[start] || !matchedTitles.has(words.slice(start, end).join(" "))) continue;
+            coverage[start] = count;
+            matchedEnd[start] = end;
+        }
+    }
+    const gaps: UnmatchedSpan[] = [];
+    for (let start = 0; start < words.length;) {
+        if (matchedEnd[start]) {
+            start = matchedEnd[start];
+            continue;
+        }
+        let end = start + 1;
+        while (end < words.length && !matchedEnd[end]) end++;
+        gaps.push({ startWord: start, endWordExclusive: end, text: words.slice(start, end).join(" ") });
+        start = end;
+    }
+    return gaps;
+}
+
 export async function matchPlaylistTracks(
     sentence: string,
     mode: Mode,
     findTrack: FindTrack
 ): Promise<string[]> {
-    const words = normalizeTitle(sentence).split(" ").filter(Boolean);
+    const words = sentenceWords(sentence);
     const firstPageLookup = memoizeLookup((title) => findTrack(title, true));
     const lookup = memoizeLookup(async (title) => {
         // Shallow misses may still match on a later page.
@@ -109,7 +144,9 @@ async function matchTitles(
     async function matchFrom(start: number): Promise<boolean> {
         if (start === words.length) return true;
 
-        for (let offset = 0; offset < words.length - start; offset++) {
+        const remaining = words.length - start;
+        const maxLength = longestFirst ? remaining : Math.min(remaining, SHORT_SEARCH_MAX_WORDS);
+        for (let offset = 0; offset < maxLength; offset++) {
             const end = longestFirst ? words.length - offset : start + 1 + offset;
             // No title ending here can complete a suffix that already failed.
             if (unmatched.has(end)) continue;
