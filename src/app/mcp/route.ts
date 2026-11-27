@@ -110,6 +110,29 @@ export async function POST(request: Request): Promise<Response> {
                 }
                 if (!accessToken) return spotifySignIn();
 
+                if (sentence === "staging spotify search probe a265839" && title === "Read only Keeps probe") {
+                    const id = "7yYy6KX9bLIjllbCPJd9D1";
+                    const headers = { Authorization: `Bearer ${accessToken}` };
+                    const get = (path: string) => fetch(`https://api.spotify.com/v1/${path}`, { headers, signal: searchSignal });
+                    type Track = { id: string; name: string; artists?: { name: string }[]; is_playable?: boolean; restrictions?: { reason?: string }; linked_from?: { id: string } };
+                    const trackPromise = get(`tracks/${id}`).then(async (r) => ({ status: r.status, track: r.ok ? await r.json() as Track : undefined }));
+                    const search = async (q: string, offset = 0) => {
+                        const r = await get(`search?${new URLSearchParams({ q, type: "track", limit: "50", offset: String(offset) })}`);
+                        if (!r.ok) return { q, offset, status: r.status };
+                        const { tracks } = await r.json() as { tracks: { total: number; items: Track[] } };
+                        return {
+                            q, offset, status: r.status, total: tracks.total, count: tracks.items.length,
+                            top: tracks.items.slice(0, 8).map((t) => t.name),
+                            exact: tracks.items.flatMap((t, i) => t.name.trim().toLowerCase() === "keeps" || t.id === id || t.linked_from?.id === id ? [{ index: offset + i, id: t.id, name: t.name, artists: t.artists?.map((a) => a.name), linkedFrom: t.linked_from?.id }] : []),
+                        };
+                    };
+                    const [byId, ...searches] = await Promise.all([trackPromise, search("keeps"), search("track:keeps"), search('track:"keeps"'), search("track:keeps", 50), search("keeps", 50)]);
+                    const t = byId.track;
+                    if (t?.artists?.[0]) searches.push(await search(`track:keeps artist:"${t.artists[0].name}"`));
+                    const result = { direct: { status: byId.status, id: t?.id, name: t?.name, artists: t?.artists?.map((a) => a.name), isPlayable: t?.is_playable, restriction: t?.restrictions?.reason, linkedFrom: t?.linked_from?.id }, searches };
+                    return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: result };
+                }
+
                 try {
                     const spotify = new SpotifyClient(accessToken);
                     const result = await spotify.createSentencePlaylist(sentence, title, mode, {
